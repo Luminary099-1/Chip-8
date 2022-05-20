@@ -8,6 +8,9 @@
  */
 class Chip8 {
 public:
+	uint16_t		_freq;			// Instruction cycle frequency.
+	bool			_running;		// True if the VM is executing cycles.
+
 	/**
 	 * @brief
 	 * 
@@ -46,23 +49,28 @@ public:
 	 */
 	void stop();
 
-private:
-	Chip8Input	_input;			// Delegate to handle input (keyboard).
-	Chip8Output	_output;		// Delegate to handle output (screen/sound).
+protected:
+	Chip8Input*		_input;			// Delegate to handle input (keyboard).
+	Chip8Output*	_output;		// Delegate to handle output (screen/sound).
+	bool			_keyWait;		// True if in_keyd (FX0A) is "blocking".
 
-	uint8_t		_gprf[16];		// General purpose register file.
-	uint16_t	_pc;			// Program counter.
-	uint16_t	_sp;			// Stack pointer.
-	uint16_t	_index;			// Memory index register.
-	uint8_t		_delay;			// Delay timer.
-	uint8_t		_sound;			// Sound timer.
-	uint8_t		_mem[4096];		// VM memory.
-	uint32_t	_screen[256];	// Screen memory.
+	uint8_t			_gprf[16];		// General purpose register file.
+	uint16_t		_pc;			// Program counter.
+	uint16_t		_sp;			// Stack pointer.
+	uint16_t		_index;			// Memory index register.
+	uint8_t			_delay;			// Delay timer.
+	uint8_t			_sound;			// Sound timer.
+	uint8_t			_mem[4096];		// VM memory.
+	uint32_t		_screen[256];	// Screen memory.
 
 	/**
 	 * @brief 
 	 */
 	void execute_cycle();
+
+
+
+
 
 	/**
 	 * @brief Retrives the halfword in memory at the specified address.

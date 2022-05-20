@@ -9,5 +9,17 @@ public:
 	 * @brief 
 	 * 
 	 */
-	void draw();
+	virtual void draw();
+
+
+	/**
+	 * @brief 
+	 */
+	virtual void start_sound();
+
+
+	/**
+	 * @brief 
+	 */
+	virtual void stop_sound();
 };

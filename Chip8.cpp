@@ -25,6 +25,11 @@ const uint16_t FONT_OFFSET = 24;
  * @param out 
  */
 Chip8::Chip8(Chip8Input in, Chip8Output out) {
+	_freq = 500;
+}
+
+
+Chip8::~Chip8() {
 	
 }
 
@@ -42,7 +47,28 @@ void Chip8::load_program() {
 }
 
 
+void Chip8::get_state() {
+
+}
+
+
+void Chip8::set_state() {
+
+}
+
+
+void Chip8::run() {
+	_running = true;
+}
+
+
+void Chip8::stop() {
+	_running = false;
+}
+
+
 void Chip8::execute_cycle() {
+	if (_running && !_keyWait) return;
 	uint16_t instruction = get_hword(_pc);
 	uint8_t a = 12 >> (instruction & 0xf000);
 	uint8_t b = 8 >> (instruction & 0x0f00);
@@ -50,17 +76,20 @@ void Chip8::execute_cycle() {
 	uint8_t d = instruction & 0x000f;
 	bool inc_pc = true;
 
-	switch (a) {
+	switch (a) { // TODO: Investigate whether a lookup table can be used.
 	case 0x0:
 		if (instruction == 0x00e0) in_clr(); // 00E0
-		else if (instruction == 0x00ee) in_rts(); // 00EE
-		else throw "Invalid instruction."; // TODO: Graceful errors.
+		else if (instruction == 0x00ee) { // 00EE
+			inc_pc = false;
+			in_rts();
+		} else throw "Invalid instruction."; // TODO: Graceful errors.
 		break;
 	case 0x1: // 1NNN
 		in_jump(instruction & 0x0fff);
 		inc_pc = false;
 		break;
 	case 0x2: // 2NNN
+		inc_pc = false;
 		in_call(instruction & 0x0fff);
 		break;
 	case 0x3: // 3XNN
@@ -120,6 +149,7 @@ void Chip8::execute_cycle() {
 		break;
 	case 0xb: // BNNN
 		in_jumpi(instruction & 0x0fff);
+		inc_pc = false;
 		break;
 	case 0xc: // CXNN
 		in_rand(b, (c << 4) + d);
@@ -169,6 +199,7 @@ void Chip8::execute_cycle() {
 		throw "Invalid instruction."; // TODO: Graceful errors.
 	}
 
+	// Increment the program counter if the instruction was not a jump.
 	if (inc_pc) _pc += 2;
 }
 
@@ -346,12 +377,12 @@ void Chip8::in_draw(uint8_t vx, uint8_t vy, uint8_t n) { // DXYN
 
 
 void Chip8::in_skpr(uint8_t vx) { // EX9E
-	if (_input.test_key(_gprf[vx])) _pc += 2;
+	if (_input->test_key(_gprf[vx])) _pc += 2;
 }
 
 
 void Chip8::in_skup(uint8_t vx) { // EXA1
-	if (!_input.test_key(_gprf[vx])) _pc += 2;
+	if (!_input->test_key(_gprf[vx])) _pc += 2;
 }
 
 
@@ -361,7 +392,7 @@ void Chip8::in_moved(uint8_t vx) { // FX07
 
 
 void Chip8::in_keyd(uint8_t vx) { // FX0A
-	_gprf[vx] = _input.wait_key();
+	_gprf[vx] = _input->wait_key();
 }
 
 
