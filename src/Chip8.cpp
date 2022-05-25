@@ -174,7 +174,8 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword) {
 	_mem[addr + 1] = hword & 0xff;
 }
 
-// Instruction implementing methods.
+
+// Instruction Implementing Methods ============================================
 void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 	// Originally called machine code instruction, does nothing here.
 }
@@ -307,31 +308,20 @@ void Chip8::in_rand(Chip8& vm, uint16_t instruction) { // CXNN
 
 
 void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
-	// TODO: Clean this up.
-	vm._gprf[0x0f] = 0x00;
-	for (uint8_t y = 0; y < INSTR_D; y ++) { // TODO: Reconsider counter type.
-		uint8_t screen_y = vm._gprf[INSTR_C] + y;
-		uint8_t sprite_row = vm._mem[vm._index + y];
-		if (screen_y >= 0 && screen_y <= 31) {
-			for (uint8_t x = 0; x < 8; x ++) {
-				uint8_t screen_x = vm._gprf[INSTR_B] + x;
-				if (screen_x >= 0 && screen_x <= 63) {
-					uint8_t mask = 2 << (8 - x);
-					uint32_t* screen_pixel =
-						vm._screen + (screen_x + screen_y * 64);
-					if (*screen_pixel == UINT32_MAX) {
-						if (sprite_row & mask == mask) {
-							*screen_pixel = 0;
-							vm._gprf[0x0f] | 0x01;
-						} else *screen_pixel = UINT32_MAX;
-					} else {
-						if (sprite_row & mask == mask)
-							*screen_pixel = UINT32_MAX;
-						else *screen_pixel = 0;
-					}
-				}
-			}
-		}
+	vm._gprf[0x0f] = 0x00; // Initialize the overwite flag to 0.
+	// Grab the sprite coordinates.
+	uint8_t xpos = INSTR_B;
+	uint8_t ypos = INSTR_C;
+	// Iterate over each line of the sprite.
+	for (uint8_t y = 0; y < INSTR_D; y ++) {
+		// Grab the line from the sprite and shift it to its x position.
+		uint64_t spr_line = (uint64_t) vm._mem[vm._index + y] << (xpos - 24);
+		// Determine the new screen line.
+		uint64_t new_line = vm._screen[ypos + y] ^ spr_line;
+		// Set the flag if an overrite happened.
+		if (vm._screen[ypos + y] & ~new_line != 0x0) vm._gprf[0x0f] = 0x01;
+		// Update the screen memory with the new line.
+		vm._screen[ypos + y] = new_line;
 	}
 }
 

@@ -53,7 +53,7 @@ protected:
 	uint8_t			_delay;			// Delay timer.
 	uint8_t			_sound;			// Sound timer.
 	uint8_t			_mem[4096];		// VM memory.
-	uint32_t		_screen[256];	// Screen memory.
+	uint64_t		_screen[32];	// Screen memory (1 dword = 1 row).
 
 	static const uint16_t FONT_OFF;			// VM font memory offset.
 	static const char const FONT[80];		// VM font data.
