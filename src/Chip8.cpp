@@ -3,8 +3,9 @@
 #include <cstdlib>
 #include <map>
 #include <stdexcept>
+#include <algorithm>
 
-
+// Macros for accessing specific parts of instructions.
 #define INSTR_A 12 >> (instruction & 0xf000) 
 #define INSTR_B 8 >> (instruction & 0x0f00)
 #define INSTR_C 4 >> (instruction & 0x00f0)
@@ -29,7 +30,7 @@ const char const Chip8::FONT[80] = {
 
 
 // 1, 2, A, B
-const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS1 = { // kNNN
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 	{0x1, in_jump},
 	{0x2, in_call},
 	{0xa, in_loadi},
@@ -38,7 +39,7 @@ const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS1 = { // kNNN
 
 
 // 3, 4, 6, 7, C
-const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS2 = { // kXNN
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 = { // kXNN
 	{0x3, in_ske},
 	{0x4, in_skne},
 	{0x6, in_load},
@@ -48,7 +49,7 @@ const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS2 = { // kXNN
 
 
 // 5, 8, 9
-const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS3 = { // kXYk
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 = { // kXYk
 	{0x50, in_skre},
 	{0x80, in_move},
 	{0x81, in_or},
@@ -64,7 +65,7 @@ const std::map<uint8_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS3 = { // kXYk
 
 
 // E, F
-const std::map<uint16_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS4 = { // kXkk
+const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 	{0x0ea1, in_skup},
 	{0x0e9e, in_skpr},
 	{0x0f33, in_bcd},
@@ -87,6 +88,8 @@ const std::map<uint16_t, Chip8::InstrFunc> Chip8::INSTRUCTIONS4 = { // kXkk
  */
 Chip8::Chip8(Chip8Input in, Chip8Output out) {
 	_freq = 500;
+	_clock = std::chrono::steady_clock();
+	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
 }
 
 
@@ -118,7 +121,7 @@ void Chip8::set_state() {
 }
 
 
-Chip8::InstrFunc Chip8::get_instr_func(uint16_t instruction) {
+Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	uint8_t a = INSTR_A;
 	uint8_t b = INSTR_B;
 	uint8_t c = INSTR_C;
@@ -135,16 +138,16 @@ Chip8::InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 		
 		else if (a != 0x5 && a != 0x8 && a != 0x9 && a != 0xe && a != 0xf) {
 			if (a == 0x1 || a == 0x2 || a == 0xa || a == 0xb) // 1, 2, A, B
-				return INSTRUCTIONS1.at(a);
+				return _INSTRUCTIONS1.at(a);
 
 			else // 3, 4, 6, 7, C
-				return INSTRUCTIONS2.at(a);
+				return _INSTRUCTIONS2.at(a);
 
 		} else if (a & 0xc == 0xc) // E, F
-			return INSTRUCTIONS3.at(((uint16_t) a << 8) + (c << 4) + d);
+			return _INSTRUCTIONS3.at(((uint16_t) a << 8) + (c << 4) + d);
 
 		else // 5, 8, 9
-			return INSTRUCTIONS4.at((a << 4) + d);
+			return _INSTRUCTIONS4.at((a << 4) + d);
 	} catch (std::out_of_range& e) {
 		throw "Invalid instruction."; // TODO: Graceful errors.
 	}
@@ -152,15 +155,42 @@ Chip8::InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 
 
 void Chip8::execute_cycle() {
-	if (_running && !_keyWait) return; // TODO: Think about this some more (sync issues?).
+	// Grab the next instruction.
 	uint16_t instruction = get_hword(_pc);
-	InstrFunc instr_func = get_instr_func(instruction);
+	// Get the instruction implementing function.
+	_InstrFunc instr_func = get_instr_func(instruction);
+	// Keep track of elapsed time to update the timers.
+	_elapsed_second += std::chrono::time_point_cast<_TimeType>(_clock.now())
+		- _prev_time;
+	// If the 60Hz timer has cycled, update the timers and reset it.
+	if (_elapsed_second.count() >= 1000) {
+		_elapsed_second -= _TimeType(1000);
+		_delay = std::min(_delay - 1, 0);
+		_sound = std::min(_sound - 1, 0);
+	}
+	// Execute the next instruction.
 	instr_func(*this, instruction);
-
+	// Set the sound output to reflect the value of the timer.
+	if (_sounding && _sound == 0) {
+		_output->stop_sound();
+		_sounding = false;
+	} else if (!_sounding && _sound >= 2) {
+		_output->start_sound();
+		_sounding = true;
+	}
 	// Increment the program counter if the instruction was not a jump.
-	_pc += 2;
-	if (instr_func == in_rts || instr_func == in_jump
-		|| instr_func == in_call || instr_func == in_jumpi) _pc -= 2;
+	if (instr_func != in_rts && instr_func != in_jump
+		&& instr_func != in_call && instr_func != in_jumpi) _pc += 2;
+}
+
+
+void start() {
+	 
+}
+
+
+void stop() {
+
 }
 
 

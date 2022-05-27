@@ -2,6 +2,9 @@
 #include "Chip8Output.hpp"
 
 #include <cstdint>
+#include <chrono>
+
+namespace chro = std::chrono;
 
 /**
  * @brief 
@@ -40,11 +43,9 @@ public:
 	void set_state();
 
 protected:
-	typedef void (*InstrFunc) (Chip8& vm, uint16_t instruction);
-
-	Chip8Input*		_input;			// Delegate to handle input (keyboard).
-	Chip8Output*	_output;		// Delegate to handle output (screen/sound).
-	bool			_keyWait;		// True if in_keyd (FX0A) is "blocking".
+	// Type of instruction implementing functions.
+	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
+	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
 
 	uint8_t			_gprf[16];		// General purpose register file.
 	uint16_t		_pc;			// Program counter.
@@ -55,12 +56,25 @@ protected:
 	uint8_t			_mem[4096];		// VM memory.
 	uint64_t		_screen[32];	// Screen memory (1 dword = 1 row).
 
-	static const uint16_t FONT_OFF;			// VM font memory offset.
-	static const char const FONT[80];		// VM font data.
-	static const std::map<uint8_t, InstrFunc> INSTRUCTIONS1;
-	static const std::map<uint8_t, InstrFunc> INSTRUCTIONS2;
-	static const std::map<uint8_t, InstrFunc> INSTRUCTIONS3;
-	static const std::map<uint16_t, InstrFunc> INSTRUCTIONS4;
+	Chip8Input*		_input;			// Delegate to handle input (keyboard).
+	Chip8Output*	_output;		// Delegate to handle output (screen/sound).
+	bool			_keyWait;		// True if in_keyd (FX0A) is "blocking".
+	bool			_sounding;		// True if sound is playing.
+	chro::steady_clock
+					_clock;			// The clock used to maintain the timers.
+	chro::time_point<chro::steady_clock, _TimeType>
+					_prev_time;		// The time of the previous cycle.
+	_TimeType		_elapsed_second;	// The time since the last timer pulse.
+	static const uint16_t	FONT_OFF;	// VM font memory offset.
+	static const char const	FONT[80];	// VM font data.
+	// Lookup table for instructions of the form kNNN.
+	static const std::map<uint8_t, _InstrFunc> _INSTRUCTIONS1;
+	// Lookup table for instructions of the form kXNN.
+	static const std::map<uint8_t, _InstrFunc> _INSTRUCTIONS2;
+	// Lookup table for instructions of the form kXYk.
+	static const std::map<uint8_t, _InstrFunc> _INSTRUCTIONS3;
+	// Lookup table for instructions of the form kXkk.
+	static const std::map<uint16_t, _InstrFunc> _INSTRUCTIONS4;
 
 	/**
 	 * @brief Get the instruction object
@@ -68,12 +82,27 @@ protected:
 	 * @param instruction 
 	 * @return 
 	 */
-	InstrFunc get_instr_func(uint16_t instruction);
+	static _InstrFunc get_instr_func(uint16_t instruction);
+
+	/**
+	 * @brief 
+	 */
+	void runner();
 
 	/**
 	 * @brief 
 	 */
 	void execute_cycle();
+
+	/**
+	 * @brief 
+	 */
+	void start();
+
+	/**
+	 * @brief 
+	 */
+	void stop();
 
 	/**
 	 * @brief Retrives the halfword in memory at the specified address.
