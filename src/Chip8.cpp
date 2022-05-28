@@ -106,20 +106,38 @@ Chip8::~Chip8() {
 }
 
 
-void Chip8::load_program() {
+void Chip8::load_program(std::fstream program) {
+	if (!program.is_open()) throw "Invalid stream."; // TODO: Graceful errors.
 	_running = false;
-	// Zero initialize memory and registers.
+	// Zero initialize memory and registers. Load the font.
 	for (size_t i = 0; i < sizeof(_mem); i ++) _mem[i] = 0;
 	for (size_t i = 0; i < sizeof(_screen); i ++) _screen[i] = 0;
 	for (uint8_t i = 0; i < 80; i ++) _mem[FONT_OFF + i] = FONT[i];
 	for (size_t i = 0; i < sizeof(_gprf); i ++) _gprf[i] = 0;
 	_sp = 0;
-	_pc =0x200;
+	_pc = 0x200;
+	_index = 0; // TODO: Set to a value that will be zero in VM memory?
 	_delay = 0;
 	_sound = 0;
 
-	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
+	// Store the number of instructions read and make space for each one.
+	uint16_t count = 0;
+	uint16_t instruction = 0;
+	while (!program.eof()) { // TODO: Better errors.
+		// Read in each instruction.
+		program.read((char*) instruction, 2);
+		// Ensure it corresponds to a real Chip8 instruction.
+		get_instr_func(instruction);
+		// Store the instruction in memory.
+		set_hword(0x200 + 2 * count, instruction);
+		count ++;
+	}
+
+	// Set VM data to defaults.
 	_programed = true;
+	_key_wait = false;
+	_sounding = false;
+	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
 }
 
 
@@ -456,12 +474,14 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 }
 
 
+// TODO: Deal with bound errors in memory.
 void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++)
 		vm._mem[vm._index + i] = vm._gprf[i];
 }
 
 
+// TODO: Deal with bound errors in memory.
 void Chip8::in_read(Chip8& vm, uint16_t instruction) { // FX65
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++)
 		vm._gprf[i] = vm._mem[vm._index + i];

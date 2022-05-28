@@ -1,6 +1,7 @@
 #include "Chip8Input.hpp"
 #include "Chip8Output.hpp"
 
+#include <fstream>
 #include <cstdint>
 #include <chrono>
 #include <map>
@@ -31,7 +32,7 @@ public:
 	/**
 	 * @brief 
 	 */
-	void load_program();
+	void load_program(std::fstream program);
 
 	/**
 	 * @brief 
