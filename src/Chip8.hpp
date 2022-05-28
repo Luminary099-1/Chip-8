@@ -1,11 +1,13 @@
-#include "Chip8Input.hpp"
-#include "Chip8Output.hpp"
+#include "Chip8Keyboard.hpp"
+#include "Chip8Display.hpp"
+#include "Chip8Sound.hpp"
 
 #include <fstream>
 #include <cstdint>
 #include <chrono>
 #include <map>
 #include <thread>
+#include <mutex>
 #include <condition_variable>
 
 namespace chro = std::chrono;
@@ -15,13 +17,13 @@ namespace chro = std::chrono;
  */
 class Chip8 {
 public:
-	uint16_t	_freq;		// Instruction cycle frequency.
+	uint16_t _freq; // Instruction cycle frequency.
 
 	/**
 	 * @brief
 	 * 
 	 */
-	Chip8(Chip8Input in, Chip8Output out);
+	Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd);
 
 	/**
 	 * @brief
@@ -60,14 +62,18 @@ protected:
 	uint8_t			_mem[4096];		// VM memory.
 	uint64_t		_screen[32];	// Screen memory (1 dword = 1 row).
 
-	Chip8Input*		_input;			// Delegate to handle input (keyboard).
-	Chip8Output*	_output;		// Delegate to handle output (screen/sound).
-	bool			_programed;		// True if the machine has a program.
+	Chip8Keyboard&	_keyboard;		// Delegate to handle input (keyboard).
+	Chip8Display&	_display;		// Delegate to handle output (screen).
+	Chip8Sound&		_speaker;		// Delegate to handle output (sound).
+	bool			_programmed;	// True if the machine has a program.
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
 	bool			_running;		// True if the VM is running cycles.
 	bool			_terminating;	// True if the runner is to end execution.
 	std::thread		_runner;		// Thread to handle operation of the VM.
+	std::mutex		_lock_mtx;		// Mutex for the runner lock.
+	// Unique lock for the runner lock.
+	std::unique_lock<std::mutex> _u_lock;
 	std::condition_variable	_lock;	// Blocks the runner when the VM is stopped.
 	chro::steady_clock _clock;		// The clock used to maintain the timers.
 	// The _clock time of the previous cycle.

@@ -3,15 +3,8 @@
 /**
  * @brief 
  */
-class Chip8Output {
+class Chip8Sound {
 public:
-	/**
-	 * @brief 
-	 * 
-	 */
-	virtual void draw();
-
-
 	/**
 	 * @brief 
 	 */

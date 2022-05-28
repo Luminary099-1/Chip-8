@@ -85,15 +85,15 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
  * @param in 
  * @param out 
  */
-Chip8::Chip8(Chip8Input in, Chip8Output out) {
+Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd)
+	: _keyboard(key), _display(disp), _speaker(snd) {
 	_freq = 500;
-	_input = in;
-	_output = out;
-	_programed = false;
+	_programmed = false;
 	_running = false;
 	_terminating = false;
-	_runner = std::thread(run);
-	_lock = std::condition_variable();
+	_runner = std::thread(&run);
+	// _lock = std::condition_variable::condition_variable();
+	_u_lock = std::unique_lock<std::mutex>(_lock_mtx);
 	_clock = std::chrono::steady_clock();
 }
 
@@ -134,7 +134,7 @@ void Chip8::load_program(std::fstream program) {
 	}
 
 	// Set VM data to defaults.
-	_programed = true;
+	_programmed = true;
 	_key_wait = false;
 	_sounding = false;
 	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
@@ -149,7 +149,7 @@ void Chip8::get_state() {
 void Chip8::set_state() {
 	_running = false;
 
-	_programed = true;
+	_programmed = true;
 }
 
 
@@ -192,7 +192,7 @@ void Chip8::run() {
 			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
 			if (!_key_wait) execute_cycle();
 		} else {
-			_lock.wait();
+			_lock.wait(_u_lock);
 			if (_terminating) break;
 		}
 	}
@@ -218,10 +218,10 @@ void Chip8::execute_cycle() {
 	instr_func(*this, instruction);
 	// Set the sound output to reflect the value of the timer.
 	if (_sounding && _sound == 0) {
-		_output->stop_sound();
+		_speaker.stop_sound();
 		_sounding = false;
 	} else if (!_sounding && _sound >= 2) {
-		_output->start_sound();
+		_speaker.start_sound();
 		_sounding = true;
 	}
 	// Increment the program counter if the instruction was not a jump.
@@ -232,12 +232,12 @@ void Chip8::execute_cycle() {
 
 void Chip8::start() {
 	// Ensure the VM can be started.
-	if (!_programed) throw "No program loaded."; // TODO: Graceful errors.
+	if (!_programmed) throw "No program loaded."; // TODO: Graceful errors.
 	if (_running) throw "VM already running."; // TODO: Graceful errors.
 	// Enable the runner to continue.
 	_running = true;
 	// Update the previous clock time.
-	_prev_time = _clock.now(); // TODO: Consider if this needs some sync.
+	_prev_time = chro::time_point_cast<_TimeType>(_clock.now()); // TODO: Consider if this needs some sync.
 	// Tell the runner to continue.
 	_lock.notify_one();
 }
@@ -412,12 +412,12 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 
 
 void Chip8::in_skpr(Chip8& vm, uint16_t instruction) { // EX9E
-	if (vm._input->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+	if (vm._keyboard.test_key(vm._gprf[INSTR_B])) vm._pc += 2;
 }
 
 
 void Chip8::in_skup(Chip8& vm, uint16_t instruction) { // EXA1
-	if (!vm._input->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+	if (!vm._keyboard.test_key(vm._gprf[INSTR_B])) vm._pc += 2;
 }
 
 
@@ -431,8 +431,8 @@ void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
 	// Block cycles until they key press is made.
 	vm._key_wait = true;
 	// Wait for a keypress that takes place when the VM is running.
-	do key = vm._input->wait_key();
-	while (!_running);
+	do key = vm._keyboard.wait_key();
+	while (!vm._running);
 	// Store the key value.
 	vm._gprf[INSTR_B] = key;
 	// Stop skipping instruction cycles.

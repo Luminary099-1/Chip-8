@@ -3,7 +3,7 @@
 /**
  * @brief 
  */
-class Chip8Input {
+class Chip8Keyboard {
 public:
 	/**
 	 * @brief
