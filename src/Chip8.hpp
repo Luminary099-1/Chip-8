@@ -3,6 +3,9 @@
 
 #include <cstdint>
 #include <chrono>
+#include <map>
+#include <thread>
+#include <condition_variable>
 
 namespace chro = std::chrono;
 
@@ -11,8 +14,7 @@ namespace chro = std::chrono;
  */
 class Chip8 {
 public:
-	uint16_t		_freq;			// Instruction cycle frequency.
-	bool			_running;		// True if the VM is executing cycles.
+	uint16_t	_freq;		// Instruction cycle frequency.
 
 	/**
 	 * @brief
@@ -45,6 +47,7 @@ public:
 protected:
 	// Type of instruction implementing functions.
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
+	// Type of std::chrono::duration for keeping the timers.
 	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
 
 	uint8_t			_gprf[16];		// General purpose register file.
@@ -58,12 +61,16 @@ protected:
 
 	Chip8Input*		_input;			// Delegate to handle input (keyboard).
 	Chip8Output*	_output;		// Delegate to handle output (screen/sound).
-	bool			_keyWait;		// True if in_keyd (FX0A) is "blocking".
+	bool			_programed;		// True if the machine has a program.
+	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
-	chro::steady_clock
-					_clock;			// The clock used to maintain the timers.
-	chro::time_point<chro::steady_clock, _TimeType>
-					_prev_time;		// The time of the previous cycle.
+	bool			_running;		// True if the VM is running cycles.
+	bool			_terminating;	// True if the runner is to end execution.
+	std::thread		_runner;		// Thread to handle operation of the VM.
+	std::condition_variable	_lock;	// Blocks the runner when the VM is stopped.
+	chro::steady_clock _clock;		// The clock used to maintain the timers.
+	// The _clock time of the previous cycle.
+	chro::time_point<chro::steady_clock, _TimeType> _prev_time;
 	_TimeType		_elapsed_second;	// The time since the last timer pulse.
 	static const uint16_t	FONT_OFF;	// VM font memory offset.
 	static const char const	FONT[80];	// VM font data.
@@ -87,7 +94,7 @@ protected:
 	/**
 	 * @brief 
 	 */
-	void runner();
+	void run();
 
 	/**
 	 * @brief 

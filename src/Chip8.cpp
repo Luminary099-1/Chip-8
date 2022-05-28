@@ -1,12 +1,11 @@
 #include "Chip8.hpp"
 
 #include <cstdlib>
-#include <map>
 #include <stdexcept>
 #include <algorithm>
 
 // Macros for accessing specific parts of instructions.
-#define INSTR_A 12 >> (instruction & 0xf000) 
+#define INSTR_A 12 >> (instruction & 0xf000)
 #define INSTR_B 8 >> (instruction & 0x0f00)
 #define INSTR_C 4 >> (instruction & 0x00f0)
 #define INSTR_D instruction & 0x000f
@@ -88,17 +87,27 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
  */
 Chip8::Chip8(Chip8Input in, Chip8Output out) {
 	_freq = 500;
+	_input = in;
+	_output = out;
+	_programed = false;
+	_running = false;
+	_terminating = false;
+	_runner = std::thread(run);
+	_lock = std::condition_variable();
 	_clock = std::chrono::steady_clock();
-	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
 }
 
 
 Chip8::~Chip8() {
-
+	_running = false;
+	_terminating = true;
+	_lock.notify_one();
+	_runner.join();
 }
 
 
 void Chip8::load_program() {
+	_running = false;
 	// Zero initialize memory and registers.
 	for (size_t i = 0; i < sizeof(_mem); i ++) _mem[i] = 0;
 	for (size_t i = 0; i < sizeof(_screen); i ++) _screen[i] = 0;
@@ -108,6 +117,9 @@ void Chip8::load_program() {
 	_pc =0x200;
 	_delay = 0;
 	_sound = 0;
+
+	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
+	_programed = true;
 }
 
 
@@ -117,7 +129,9 @@ void Chip8::get_state() {
 
 
 void Chip8::set_state() {
+	_running = false;
 
+	_programed = true;
 }
 
 
@@ -154,15 +168,29 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
+void Chip8::run() {
+	while (true) {
+		if (_running) {
+			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
+			if (!_key_wait) execute_cycle();
+		} else {
+			_lock.wait();
+			if (_terminating) break;
+		}
+	}
+}
+
+
 void Chip8::execute_cycle() {
 	// Grab the next instruction.
 	uint16_t instruction = get_hword(_pc);
 	// Get the instruction implementing function.
 	_InstrFunc instr_func = get_instr_func(instruction);
 	// Keep track of elapsed time to update the timers.
-	_elapsed_second += std::chrono::time_point_cast<_TimeType>(_clock.now())
+	_elapsed_second += chro::time_point_cast<_TimeType>(_clock.now())
 		- _prev_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
+
 	if (_elapsed_second.count() >= 1000) {
 		_elapsed_second -= _TimeType(1000);
 		_delay = std::min(_delay - 1, 0);
@@ -184,13 +212,22 @@ void Chip8::execute_cycle() {
 }
 
 
-void start() {
-	 
+void Chip8::start() {
+	// Ensure the VM can be started.
+	if (!_programed) throw "No program loaded."; // TODO: Graceful errors.
+	if (_running) throw "VM already running."; // TODO: Graceful errors.
+	// Enable the runner to continue.
+	_running = true;
+	// Update the previous clock time.
+	_prev_time = _clock.now(); // TODO: Consider if this needs some sync.
+	// Tell the runner to continue.
+	_lock.notify_one();
 }
 
 
-void stop() {
-
+void Chip8::stop() {
+	// Signal to the runner to wait.
+	_running = false;
 }
 
 
@@ -372,7 +409,16 @@ void Chip8::in_moved(Chip8& vm, uint16_t instruction) { // FX07
 
 
 void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
-	vm._gprf[INSTR_B] = vm._input->wait_key();
+	uint8_t key;
+	// Block cycles until they key press is made.
+	vm._key_wait = true;
+	// Wait for a keypress that takes place when the VM is running.
+	do key = vm._input->wait_key();
+	while (!_running);
+	// Store the key value.
+	vm._gprf[INSTR_B] = key;
+	// Stop skipping instruction cycles.
+	vm._key_wait = false;
 }
 
 
