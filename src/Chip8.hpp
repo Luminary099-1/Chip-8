@@ -2,6 +2,8 @@
 #include "Chip8Display.hpp"
 #include "Chip8Sound.hpp"
 
+#include <array>
+#include <string>
 #include <fstream>
 #include <cstdint>
 #include <chrono>
@@ -39,20 +41,20 @@ public:
 	/**
 	 * @brief 
 	 */
-	void get_state();
+	void get_state(uint8_t* destination);
 
 
 	/**
 	 * @brief 
 	 */
-	void set_state();
+	void set_state(uint8_t* source);
 
 protected:
 	// Type of instruction implementing functions.
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
 	// Type of std::chrono::duration for keeping the timers.
 	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
-
+	// TODO: Convert arrays to the class type to perform bounds checking.
 	uint8_t			_gprf[16];		// General purpose register file.
 	uint16_t		_pc;			// Program counter.
 	uint16_t		_sp;			// Stack pointer.
@@ -69,6 +71,7 @@ protected:
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
 	bool			_running;		// True if the VM is running cycles.
+	bool			_stopped;		// True if the runner is stopped.
 	bool			_terminating;	// True if the runner is to end execution.
 	std::thread		_runner;		// Thread to handle operation of the VM.
 	std::mutex		_lock_mtx;		// Mutex for the runner lock.
@@ -90,6 +93,13 @@ protected:
 	// Lookup table for instructions of the form kXkk.
 	static const std::map<uint16_t, _InstrFunc> _INSTRUCTIONS4;
 
+public:
+	// Stores the number of bytes in the state structure (a string).
+	const size_t _state_size = sizeof(_gprf) + sizeof(_pc) + sizeof(_sp)
+		+ sizeof(_index) + sizeof(_delay) + sizeof(_sound) + sizeof(_mem)
+		+ sizeof(_screen) + 1 + sizeof(uint64_t);
+
+protected:
 	/**
 	 * @brief Get the instruction object
 	 * 

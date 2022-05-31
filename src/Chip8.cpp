@@ -90,6 +90,7 @@ Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd)
 	_freq = 500;
 	_programmed = false;
 	_running = false;
+	_stopped = false;
 	_terminating = false;
 	_runner = std::thread(&run);
 	// _lock = std::condition_variable::condition_variable();
@@ -110,10 +111,10 @@ void Chip8::load_program(std::fstream program) {
 	if (!program.is_open()) throw "Invalid stream."; // TODO: Graceful errors.
 	_running = false;
 	// Zero initialize memory and registers. Load the font.
-	for (size_t i = 0; i < sizeof(_mem); i ++) _mem[i] = 0;
-	for (size_t i = 0; i < sizeof(_screen); i ++) _screen[i] = 0;
-	for (uint8_t i = 0; i < 80; i ++) _mem[FONT_OFF + i] = FONT[i];
-	for (size_t i = 0; i < sizeof(_gprf); i ++) _gprf[i] = 0;
+	memset(_mem, 0, sizeof(_mem));
+	memset(_screen, 0, sizeof(_screen));
+	memcpy(_mem + FONT_OFF, FONT, sizeof(FONT));
+	memset(_gprf, 0, sizeof(_gprf));
 	_sp = 0;
 	_pc = 0x200;
 	_index = 0; // TODO: Set to a value that will be zero in VM memory?
@@ -137,18 +138,67 @@ void Chip8::load_program(std::fstream program) {
 	_programmed = true;
 	_key_wait = false;
 	_sounding = false;
-	_elapsed_second = std::chrono::duration<uint64_t, std::ratio<1, 1000>>(0);
+	_elapsed_second = _TimeType(0);
 }
 
 
-void Chip8::get_state() {
-
+void Chip8::get_state(uint8_t* destination) {
+	stop();
+	uint16_t* destination16 = (uint16_t*) destination;
+	uint64_t* destination64 = (uint64_t*) destination;
+	size_t offset = 0;
+	memcpy(destination + offset, _gprf, sizeof(_gprf));
+	offset += sizeof(_gprf);
+	destination16[offset] = _pc; // TODO: Determine if truncation is a problem.
+	offset += sizeof(_pc);
+	destination16[offset] = _sp;
+	offset += sizeof(_sp);
+	destination16[offset] = _index;
+	offset += sizeof(_index);
+	destination[offset] = _delay;
+	offset += sizeof(_delay);
+	destination[offset] = _sound;
+	offset += sizeof(_sound);
+	memcpy(destination + offset, _mem, sizeof(_mem));
+	offset += sizeof(_mem);
+	memcpy(destination + offset, _screen, sizeof(_screen));
+	offset += sizeof(_screen);
+	uint8_t flags = 0;
+	if (_sounding) destination[offset] = 0x01;
+	else destination[offset] = 0x00;
+	offset += 1;
+	destination64[offset] = _elapsed_second.count();
+	start();
 }
 
 
-void Chip8::set_state() {
+void Chip8::set_state(uint8_t* source) {
 	_running = false;
-
+	stop();
+	uint16_t* source16 = (uint16_t*) source;
+	uint64_t* source64 = (uint64_t*) source;
+	size_t offset = 0;
+	memcpy(_gprf, source + offset, sizeof(_gprf));
+	offset += sizeof(_gprf);
+	_pc = source16[offset]; // TODO: Determine if truncation is a problem.
+	offset += sizeof(_pc);
+	_sp = source16[offset];
+	offset += sizeof(_sp);
+	_index = source16[offset];
+	offset += sizeof(_index);
+	_delay = source[offset];
+	offset += sizeof(_delay);
+	_sound = source[offset];
+	offset += sizeof(_sound);
+	memcpy(_mem, source + offset, sizeof(_mem));
+	offset += sizeof(_mem);
+	memcpy(_screen, source + offset, sizeof(_screen));
+	offset += sizeof(_screen);
+	uint8_t flags = 0;
+	if (source[offset] == 0x01) _sounding = true;
+	else _sounding = false;
+	offset += 1;
+	_elapsed_second = _TimeType(source64[offset]);
 	_programmed = true;
 }
 
@@ -192,8 +242,10 @@ void Chip8::run() {
 			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
 			if (!_key_wait) execute_cycle();
 		} else {
+			_stopped = true;
 			_lock.wait(_u_lock);
 			if (_terminating) break;
+			_stopped = false;
 		}
 	}
 }
@@ -233,7 +285,7 @@ void Chip8::execute_cycle() {
 void Chip8::start() {
 	// Ensure the VM can be started.
 	if (!_programmed) throw "No program loaded."; // TODO: Graceful errors.
-	if (_running) throw "VM already running."; // TODO: Graceful errors.
+	if (_running || !_stopped) throw "VM already running."; // TODO: Graceful errors.
 	// Enable the runner to continue.
 	_running = true;
 	// Update the previous clock time.
@@ -246,6 +298,8 @@ void Chip8::start() {
 void Chip8::stop() {
 	// Signal to the runner to wait.
 	_running = false;
+	// Wait until the runner finishes its cycle.
+	while(!_stopped);
 }
 
 
