@@ -83,7 +83,6 @@ protected:
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
 	// Type of std::chrono::duration for keeping the timers.
 	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
-	// TODO: Convert arrays to the class type to perform bounds checking.
 	uint8_t			_gprf[16];		// General purpose register file.
 	uint16_t		_pc;			// Program counter.
 	uint16_t		_sp;			// Stack pointer.

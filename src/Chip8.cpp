@@ -122,7 +122,12 @@ void Chip8::load_program(std::fstream& program) {
 		// Read in each instruction.
 		program.read((char*) instruction, 2);
 		// Ensure it corresponds to a real Chip8 instruction.
-		get_instr_func(instruction);
+		_InstrFunc func = get_instr_func(instruction);
+		// Ensure functions with addresses are valid.
+		if (func == in_sys || func == in_jump || func == in_call) {
+			uint16_t addr = INSTR_ADDR;
+			if (addr < 0x200 || addr > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+		}
 		// Store the instruction in memory.
 		set_hword(0x200 + 2 * count, instruction);
 		count ++;
@@ -439,7 +444,9 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instruction) { // ANNN
 
 
 void Chip8::in_jumpi(Chip8& vm, uint16_t instruction) { // BNNN
-	vm._pc = vm._gprf[0] + INSTR_ADDR;
+	uint16_t addr = vm._gprf[0] + INSTR_ADDR;
+	if (addr < 0x200 || addr > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+	vm._pc = addr;
 }
 
 
@@ -454,8 +461,9 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 	uint8_t xpos = INSTR_B;
 	uint8_t ypos = INSTR_C;
 	// Iterate over each line of the sprite.
-	for (uint8_t y = 0; y < INSTR_D; y ++) {
+	for (uint8_t y = 0; y < std::min(INSTR_D, 31); y ++) {
 		// Grab the line from the sprite and shift it to its x position.
+		if (vm._index + y < 0x200 || vm._index + y > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
 		uint64_t spr_line = (uint64_t) vm._mem[vm._index + y] << (xpos - 24);
 		// Determine the new screen line.
 		uint64_t new_line = vm._screen[ypos + y] ^ spr_line;
@@ -464,6 +472,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 		// Update the screen memory with the new line.
 		vm._screen[ypos + y] = new_line;
 	}
+	// TODO: Update the display output delegate (here?).
 }
 
 
@@ -524,21 +533,26 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 		if (scratch & 0xf000 > 0x4000) scratch += 0x3000;
 		if (scratch & 0xf0000 > 0x40000) scratch += 0x30000;
 	}
+	if (vm._index < 0x200 || vm._index + 2 > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
 	vm._mem[vm._index] = 0xf >> (scratch & 0xf0000);
 	vm._mem[vm._index + 1] = 0xb >> (scratch & 0xf000);
 	vm._mem[vm._index + 2] = 0x8 >> (scratch & 0xf00);
 }
 
 
-// TODO: Deal with bound errors in memory.
 void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
-	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++)
+	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
+		if (vm._index + i < 0x200 || vm._index > 0xe8f)
+			throw "Segfault."; // TODO: Graceful errors.
 		vm._mem[vm._index + i] = vm._gprf[i];
+	}
 }
 
 
-// TODO: Deal with bound errors in memory.
 void Chip8::in_read(Chip8& vm, uint16_t instruction) { // FX65
-	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++)
+	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
+		if (vm._index + i < 0x200 || vm._index > 0xe8f)
+			throw "Segfault."; // TODO: Graceful errors.
 		vm._gprf[i] = vm._mem[vm._index + i];
+	}
 }
