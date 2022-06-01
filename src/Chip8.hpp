@@ -3,51 +3,80 @@
 #include "Chip8Sound.hpp"
 
 #include <array>
-#include <string>
-#include <fstream>
-#include <cstdint>
 #include <chrono>
-#include <map>
-#include <thread>
-#include <mutex>
 #include <condition_variable>
+#include <cstdint>
+#include <fstream>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
 
 namespace chro = std::chrono;
 
 /**
- * @brief 
+ * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
+ * Chip-8 language.
  */
 class Chip8 {
 public:
-	uint16_t _freq; // Instruction cycle frequency.
+	uint16_t _freq; // Instruction cycle frequency. Defaults to 500Hz.
 
 	/**
-	 * @brief
+	 * @brief Construct a new Chip-8 VM. A program will have to be loaded or a
+	 * state restored before start() can be called.
 	 * 
+	 * @param key A reference to the keyboard input delegate to be used by this
+	 * VM.
+	 * @param disp A reference to the display output delegate to be used by this
+	 * VM.
+	 * @param snd A reference to the sound output delegate to be used by this
+	 * VM.
 	 */
 	Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd);
 
 	/**
-	 * @brief
-	 * 
+	 * @brief Stops the execution of the VM (if running) and destroys the
+	 * instance.
 	 */
 	~Chip8();
 
 	/**
-	 * @brief 
+	 * @brief Loads in the passed program and initializes the VM to run from its
+	 * start.
+	 * 
+	 * @param program A reference to an open filestream that contains the
+	 * program to be loaded. The contents of the steam are assumed to be in
+	 * "compiled" Chip-8 byte code, each instruction being two bytes with
+	 * nothing in between each.
 	 */
-	void load_program(std::fstream program);
+	void load_program(std::fstream& program);
 
 	/**
-	 * @brief 
+	 * @brief Obtain the current state of the VM.
+	 * 
+	 * @param destination A pointer to a space of size _state_size to which the
+	 * state will be written.
 	 */
 	void get_state(uint8_t* destination);
 
-
 	/**
-	 * @brief 
+	 * @brief Loads in the passed state into the VM to be resumed.
+	 * 
+	 * @param source A pointer to a space of size _state_size from which the
+	 * state will be loaded.
 	 */
 	void set_state(uint8_t* source);
+	
+	/**
+	 * @brief Start the VM's execution.
+	 */
+	void start();
+
+	/**
+	 * @brief Stop the VM's execution.
+	 */
+	void stop();
 
 protected:
 	// Type of instruction implementing functions.
@@ -101,32 +130,29 @@ public:
 
 protected:
 	/**
-	 * @brief Get the instruction object
+	 * @brief Returns the function that implements the passed Chip-8
+	 * instruction.
 	 * 
-	 * @param instruction 
-	 * @return 
+	 * @param instruction A Chip-8 instruction.
+	 * @return A pointer to the instruction implementing function that
+	 * corresponds to the passed instruction.
 	 */
 	static _InstrFunc get_instr_func(uint16_t instruction);
 
 	/**
-	 * @brief 
+	 * @brief Asynchronously sets VM cycles continuously, at a rate no faster
+	 * than the value of _freq. If _running is set to false, the function will
+	 * stop executing cycles, lock the _lock condition variable, and sets
+	 * _stopped to true. To resume execution, _running must be set true and
+	 * _lock released; _stopped is set by run() when execution resumes.
 	 */
 	void run();
 
 	/**
-	 * @brief 
+	 * @brief Executes the next Chip-8 instruction cycles, given the state of
+	 * the VM.
 	 */
 	void execute_cycle();
-
-	/**
-	 * @brief 
-	 */
-	void start();
-
-	/**
-	 * @brief 
-	 */
-	void stop();
 
 	/**
 	 * @brief Retrives the halfword in memory at the specified address.

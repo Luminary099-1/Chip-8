@@ -28,7 +28,7 @@ const char const Chip8::FONT[80] = {
 };
 
 
-// 1, 2, A, B
+// Instructions with leading half bytes of 1, 2, A, and B.
 const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 	{0x1, in_jump},
 	{0x2, in_call},
@@ -37,7 +37,7 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 };
 
 
-// 3, 4, 6, 7, C
+// Instructions with leading half bytes of 3, 4, 6, 7, and C.
 const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 = { // kXNN
 	{0x3, in_ske},
 	{0x4, in_skne},
@@ -47,7 +47,7 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 = { // kXNN
 };
 
 
-// 5, 8, 9
+// Instructions with leading half bytes of 5, 8, and 9.
 const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 = { // kXYk
 	{0x50, in_skre},
 	{0x80, in_move},
@@ -63,7 +63,7 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 = { // kXYk
 };
 
 
-// E, F
+// Instructions with leading half bytes of E and F.
 const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 	{0x0ea1, in_skup},
 	{0x0e9e, in_skpr},
@@ -79,12 +79,6 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 };
 
 
-/**
- * @brief Construct a new Chip 8:: Chip 8 object
- * 
- * @param in 
- * @param out 
- */
 Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd)
 	: _keyboard(key), _display(disp), _speaker(snd) {
 	_freq = 500;
@@ -107,7 +101,7 @@ Chip8::~Chip8() {
 }
 
 
-void Chip8::load_program(std::fstream program) {
+void Chip8::load_program(std::fstream& program) {
 	if (!program.is_open()) throw "Invalid stream."; // TODO: Graceful errors.
 	_running = false;
 	// Zero initialize memory and registers. Load the font.
@@ -143,6 +137,7 @@ void Chip8::load_program(std::fstream program) {
 
 
 void Chip8::get_state(uint8_t* destination) {
+	// TODO: Store _running to determine if restarting is necessary.
 	stop();
 	uint16_t* destination16 = (uint16_t*) destination;
 	uint64_t* destination64 = (uint64_t*) destination;
@@ -204,32 +199,37 @@ void Chip8::set_state(uint8_t* source) {
 
 
 Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
+	// Grab the halfwords of the instruction.
 	uint8_t a = INSTR_A;
 	uint8_t b = INSTR_B;
 	uint8_t c = INSTR_C;
 	uint8_t d = INSTR_D;
 	
-	try {
-		if (a == 0x0) {
+	try { // Use the instruction to determine which map to search.
+		if (a == 0x0) { // Leading half byte 0.
 			if (d == 0x0) return in_clr;
 			else if (d == 0xe) return in_rts;
 			else throw std::out_of_range("");
 
-		} else if (a == 0xd) // D
+		} else if (a == 0xd) // DXYN
 			return in_draw;
 		
+		// Leading half bytes 1, 2, 3, 4, 6, 7, A, B, and C.
 		else if (a != 0x5 && a != 0x8 && a != 0x9 && a != 0xe && a != 0xf) {
-			if (a == 0x1 || a == 0x2 || a == 0xa || a == 0xb) // 1, 2, A, B
+			// Leading half bytes 1, 2, A, and B.
+			if (a == 0x1 || a == 0x2 || a == 0xa || a == 0xb)
 				return _INSTRUCTIONS1.at(a);
 
-			else // 3, 4, 6, 7, C
+			else // Leading half bytes 3, 4, 6, 7, and C.
 				return _INSTRUCTIONS2.at(a);
 
-		} else if (a & 0xc == 0xc) // E, F
+		} else if (a & 0xc == 0xc) // Leading half bytes E and F.
 			return _INSTRUCTIONS3.at(((uint16_t) a << 8) + (c << 4) + d);
 
-		else // 5, 8, 9
+		else // Leading half bytes 5, 8, and 9.
 			return _INSTRUCTIONS4.at((a << 4) + d);
+	
+	// Catch and rethrow invalid instruction accesses.
 	} catch (std::out_of_range& e) {
 		throw "Invalid instruction."; // TODO: Graceful errors.
 	}
@@ -237,15 +237,17 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 
 
 void Chip8::run() {
-	while (true) {
-		if (_running) {
+	while (true) { // Attempt to execute instructions continuously.
+		if (_running) { // If the VM should run:
+			// Sleep to attain the desired instruction cycle frequency.
 			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
+			// Run the cycle if in_keyd() is not waiting for a keypress.
 			if (!_key_wait) execute_cycle();
-		} else {
-			_stopped = true;
-			_lock.wait(_u_lock);
-			if (_terminating) break;
-			_stopped = false;
+		} else { // If the VM should not run:
+			_stopped = true; // Indicate the VM state will not change.
+			_lock.wait(_u_lock); // Lock the condition variable.
+			if (_terminating) break; // If the instance is being destroyed.
+			_stopped = false; // Indicate the CM state might change.
 		}
 	}
 }
