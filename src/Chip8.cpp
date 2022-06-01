@@ -111,7 +111,7 @@ void Chip8::load_program(std::fstream& program) {
 	memset(_gprf, 0, sizeof(_gprf));
 	_sp = 0;
 	_pc = 0x200;
-	_index = 0; // TODO: Set to a value that will be zero in VM memory?
+	_index = 0;
 	_delay = 0;
 	_sound = 0;
 
@@ -142,8 +142,8 @@ void Chip8::load_program(std::fstream& program) {
 
 
 void Chip8::get_state(uint8_t* destination) {
-	// TODO: Store _running to determine if restarting is necessary.
-	stop();
+	bool running = _running;
+	if (running) stop();
 	uint16_t* destination16 = (uint16_t*) destination;
 	uint64_t* destination64 = (uint64_t*) destination;
 	size_t offset = 0;
@@ -168,7 +168,7 @@ void Chip8::get_state(uint8_t* destination) {
 	else destination[offset] = 0x00;
 	offset += 1;
 	destination64[offset] = _elapsed_second.count();
-	start();
+	if (running) start();
 }
 
 
@@ -296,7 +296,7 @@ void Chip8::start() {
 	// Enable the runner to continue.
 	_running = true;
 	// Update the previous clock time.
-	_prev_time = chro::time_point_cast<_TimeType>(_clock.now()); // TODO: Consider if this needs some sync.
+	_prev_time = chro::time_point_cast<_TimeType>(_clock.now());
 	// Tell the runner to continue.
 	_lock.notify_one();
 }
