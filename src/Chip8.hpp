@@ -1,6 +1,4 @@
-#include "Chip8Keyboard.hpp"
-#include "Chip8Display.hpp"
-#include "Chip8Sound.hpp"
+#include "Chip8Observers.hpp"
 
 #include <array>
 #include <chrono>
@@ -32,8 +30,11 @@ public:
 	 * VM.
 	 * @param snd A reference to the sound output delegate to be used by this
 	 * VM.
+	 * @param err A reference to the error handling delegate to be used by this
+	 * VM.
 	 */
-	Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd);
+	Chip8(Chip8Keyboard& key, Chip8Display& disp,
+		Chip8Sound& snd, Chip8Error& err);
 
 	/**
 	 * @brief Stops the execution of the VM (if running) and destroys the
@@ -78,11 +79,27 @@ public:
 	 */
 	void stop();
 
+	/**
+	 * @brief Indicates if the VM is currently running. The VM is running even
+	 * if it has not yet reacted to a call to stop().
+	 * 
+	 * @return Returns true if the VM is running; false otherwise.
+	 */
+	bool is_running();
+
+	/**
+	 * @brief Indicats if the VM has crashed.
+	 * 
+	 * @return Returns true if the VM crashed; false otherwise.
+	 */
+	bool is_crashed();
+
 protected:
 	// Type of instruction implementing functions.
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
 	// Type of std::chrono::duration for keeping the timers.
 	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
+
 	uint8_t			_gprf[16];		// General purpose register file.
 	uint16_t		_pc;			// Program counter.
 	uint16_t		_sp;			// Stack pointer.
@@ -95,11 +112,13 @@ protected:
 	Chip8Keyboard&	_keyboard;		// Delegate to handle input (keyboard).
 	Chip8Display&	_display;		// Delegate to handle output (screen).
 	Chip8Sound&		_speaker;		// Delegate to handle output (sound).
+	Chip8Error&		_error;			// Delegate to receive error notifications.
 	bool			_programmed;	// True if the machine has a program.
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
 	bool			_running;		// True if the VM is running cycles.
 	bool			_stopped;		// True if the runner is stopped.
+	bool			_crashed;		// True if the VM crashed.
 	bool			_terminating;	// True if the runner is to end execution.
 	std::thread		_runner;		// Thread to handle operation of the VM.
 	std::mutex		_lock_mtx;		// Mutex for the runner lock.

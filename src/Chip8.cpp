@@ -13,6 +13,14 @@
 #define INSTR_IMM instruction & 0x00ff
 
 
+/**
+ * @brief Standard exception class for errors pertaining to emulation.
+ */
+struct Chip8Error : public std::runtime_error {
+	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
+
+
 const uint16_t Chip8::FONT_OFF = 24;
 
 
@@ -79,8 +87,9 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 };
 
 
-Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp, Chip8Sound& snd)
-	: _keyboard(key), _display(disp), _speaker(snd) {
+Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp,
+	Chip8Sound& snd, Chip8Error& err)
+	: _keyboard(key), _display(disp), _speaker(snd), _error(err) {
 	_freq = 500;
 	_programmed = false;
 	_running = false;
@@ -102,7 +111,8 @@ Chip8::~Chip8() {
 
 
 void Chip8::load_program(std::fstream& program) {
-	if (!program.is_open()) throw "Invalid stream."; // TODO: Graceful errors.
+	if (!program.is_open())
+		throw std::invalid_argument("Invalid program stream.");
 	_running = false;
 	// Zero initialize memory and registers. Load the font.
 	memset(_mem, 0, sizeof(_mem));
@@ -118,15 +128,23 @@ void Chip8::load_program(std::fstream& program) {
 	// Store the number of instructions read and make space for each one.
 	uint16_t count = 0;
 	uint16_t instruction = 0;
-	while (!program.eof()) { // TODO: Better errors.
+	while (!program.eof()) {
 		// Read in each instruction.
 		program.read((char*) instruction, 2);
 		// Ensure it corresponds to a real Chip8 instruction.
-		_InstrFunc func = get_instr_func(instruction);
+		_InstrFunc func = nullptr;
+		try {
+		func = get_instr_func(instruction);
+		} catch (Chip8Error& e) {
+			std::string msg = "Invalid instruction: instruction "
+				+ std::to_string(count);
+			throw std::logic_error(msg.c_str());
+		}
 		// Ensure functions with addresses are valid.
 		if (func == in_sys || func == in_jump || func == in_call) {
 			uint16_t addr = INSTR_ADDR;
-			if (addr < 0x200 || addr > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+			if (addr < 0x200 || addr > 0xe8f)
+				std::out_of_range("Illegal VM memory operation.");
 		}
 		// Store the instruction in memory.
 		set_hword(0x200 + 2 * count, instruction);
@@ -134,6 +152,7 @@ void Chip8::load_program(std::fstream& program) {
 	}
 
 	// Set VM data to defaults.
+	_crashed = false;
 	_programmed = true;
 	_key_wait = false;
 	_sounding = false;
@@ -142,6 +161,7 @@ void Chip8::load_program(std::fstream& program) {
 
 
 void Chip8::get_state(uint8_t* destination) {
+	if (_crashed) throw std::logic_error("VM has crashed.");
 	bool running = _running;
 	if (running) stop();
 	uint16_t* destination16 = (uint16_t*) destination;
@@ -200,6 +220,7 @@ void Chip8::set_state(uint8_t* source) {
 	offset += 1;
 	_elapsed_second = _TimeType(source64[offset]);
 	_programmed = true;
+	_crashed = false;
 }
 
 
@@ -236,7 +257,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	
 	// Catch and rethrow invalid instruction accesses.
 	} catch (std::out_of_range& e) {
-		throw "Invalid instruction."; // TODO: Graceful errors.
+		throw Chip8Error("Invalid instruction.");
 	}
 }
 
@@ -247,7 +268,12 @@ void Chip8::run() {
 			// Sleep to attain the desired instruction cycle frequency.
 			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
 			// Run the cycle if in_keyd() is not waiting for a keypress.
-			if (!_key_wait) execute_cycle();
+			try {
+				if (!_key_wait) execute_cycle();
+			} catch (Chip8Error& e) {
+				_crashed = true;
+				_running = false;
+			}
 		} else { // If the VM should not run:
 			_stopped = true; // Indicate the VM state will not change.
 			_lock.wait(_u_lock); // Lock the condition variable.
@@ -267,7 +293,6 @@ void Chip8::execute_cycle() {
 	_elapsed_second += chro::time_point_cast<_TimeType>(_clock.now())
 		- _prev_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
-
 	if (_elapsed_second.count() >= 1000) {
 		_elapsed_second -= _TimeType(1000);
 		_delay = std::min(_delay - 1, 0);
@@ -291,8 +316,9 @@ void Chip8::execute_cycle() {
 
 void Chip8::start() {
 	// Ensure the VM can be started.
-	if (!_programmed) throw "No program loaded."; // TODO: Graceful errors.
-	if (_running || !_stopped) throw "VM already running."; // TODO: Graceful errors.
+	if (!_programmed) throw std::logic_error("No program loaded.");
+	if (_running || !_stopped) throw std::logic_error("VM is already running.");
+	if (_crashed) throw std::logic_error("VM has crashed.");
 	// Enable the runner to continue.
 	_running = true;
 	// Update the previous clock time.
@@ -303,10 +329,23 @@ void Chip8::start() {
 
 
 void Chip8::stop() {
+	// Ensure the VM can be stopped.
+	if (!_running || _stopped)
+		throw std::logic_error("VM is already not running.");
 	// Signal to the runner to wait.
 	_running = false;
 	// Wait until the runner finishes its cycle.
 	while(!_stopped);
+}
+
+
+bool Chip8::is_running() {
+	return _running;
+}
+
+
+bool Chip8::is_crashed() {
+	return _crashed;
 }
 
 
@@ -333,7 +372,8 @@ void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
 
 
 void Chip8::in_rts(Chip8& vm, uint16_t instruction) { // 00EE
-	if (vm._sp == 0) throw "Call stack underflow on return."; // TODO: Graceful errors.
+	if (vm._sp == 0)
+		throw Chip8Error("VM stack underflow.");
 	vm._pc = vm.get_hword(vm._sp);
 	vm._sp -= 2;
 }
@@ -345,7 +385,8 @@ void Chip8::in_jump(Chip8& vm, uint16_t instruction) { // 1NNN
 
 
 void Chip8::in_call(Chip8& vm, uint16_t instruction) { // 2NNN
-	if (vm._sp == FONT_OFF - 1) throw "Call stack overflow on call."; // TODO: Graceful errors.
+	if (vm._sp == FONT_OFF - 1)
+		throw Chip8Error("VM stack overflow.");
 	vm._sp += 2;
 	vm.set_hword(vm._sp, vm._pc);
 	vm._pc = INSTR_ADDR;
@@ -445,7 +486,8 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instruction) { // ANNN
 
 void Chip8::in_jumpi(Chip8& vm, uint16_t instruction) { // BNNN
 	uint16_t addr = vm._gprf[0] + INSTR_ADDR;
-	if (addr < 0x200 || addr > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+	if (addr < 0x200 || addr > 0xe8f)
+		Chip8Error("Illegal VM memory operation.");
 	vm._pc = addr;
 }
 
@@ -463,7 +505,8 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 	// Iterate over each line of the sprite.
 	for (uint8_t y = 0; y < std::min(INSTR_D, 31); y ++) {
 		// Grab the line from the sprite and shift it to its x position.
-		if (vm._index + y < 0x200 || vm._index + y > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+		if (vm._index + y < 0x200 || vm._index + y > 0xe8f)
+			Chip8Error("Illegal VM memory operation.");
 		uint64_t spr_line = (uint64_t) vm._mem[vm._index + y] << (xpos - 24);
 		// Determine the new screen line.
 		uint64_t new_line = vm._screen[ypos + y] ^ spr_line;
@@ -533,7 +576,8 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 		if (scratch & 0xf000 > 0x4000) scratch += 0x3000;
 		if (scratch & 0xf0000 > 0x40000) scratch += 0x30000;
 	}
-	if (vm._index < 0x200 || vm._index + 2 > 0xe8f) throw "Segfault."; // TODO: Graceful errors.
+	if (vm._index < 0x200 || vm._index + 2 > 0xe8f)
+		Chip8Error("Illegal VM memory operation.");
 	vm._mem[vm._index] = 0xf >> (scratch & 0xf0000);
 	vm._mem[vm._index + 1] = 0xb >> (scratch & 0xf000);
 	vm._mem[vm._index + 2] = 0x8 >> (scratch & 0xf00);
@@ -543,7 +587,7 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
 		if (vm._index + i < 0x200 || vm._index > 0xe8f)
-			throw "Segfault."; // TODO: Graceful errors.
+			throw Chip8Error("Illegal VM memory operation.");
 		vm._mem[vm._index + i] = vm._gprf[i];
 	}
 }
@@ -552,7 +596,7 @@ void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 void Chip8::in_read(Chip8& vm, uint16_t instruction) { // FX65
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
 		if (vm._index + i < 0x200 || vm._index > 0xe8f)
-			throw "Segfault."; // TODO: Graceful errors.
+			throw Chip8Error("Illegal VM memory operation.");
 		vm._gprf[i] = vm._mem[vm._index + i];
 	}
 }
