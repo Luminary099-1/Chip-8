@@ -368,6 +368,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 
 void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
 	for (size_t i = 0; i < sizeof(vm._screen); i ++) vm._screen[i] = 0;
+	vm._display.draw(vm._screen);
 }
 
 
@@ -515,7 +516,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 		// Update the screen memory with the new line.
 		vm._screen[ypos + y] = new_line;
 	}
-	// TODO: Update the display output delegate (here?).
+	vm._display.draw(vm._screen);
 }
 
 
@@ -568,16 +569,21 @@ void Chip8::in_ldspr(Chip8& vm, uint16_t instruction) { // FX29
 }
 
 
+// Makes use of the Double Dabble algorithm.
 void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
-	uint32_t scratch = INSTR_B;
-	for (uint32_t i = 0; i < 8; i ++) {
-		scratch = scratch << 1;
+	// Grab the initial value from the register.
+	uint32_t scratch = vm._gprf[INSTR_B];
+	for (size_t i = 0; i < 8; i ++) {
+		scratch = scratch << 1; // Shift in each bit of the value.
+		// Add 3 to each digit if greater than 4.
 		if (scratch & 0xf00 > 0x400) scratch += 0x300;
 		if (scratch & 0xf000 > 0x4000) scratch += 0x3000;
 		if (scratch & 0xf0000 > 0x40000) scratch += 0x30000;
 	}
+	// Ensure the destination memory is valid.
 	if (vm._index < 0x200 || vm._index + 2 > 0xe8f)
 		Chip8Error("Illegal VM memory operation.");
+	// Store each digit in memory.
 	vm._mem[vm._index] = 0xf >> (scratch & 0xf0000);
 	vm._mem[vm._index + 1] = 0xb >> (scratch & 0xf000);
 	vm._mem[vm._index + 2] = 0x8 >> (scratch & 0xf00);
