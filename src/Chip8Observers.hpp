@@ -11,7 +11,7 @@ struct Chip8Keyboard {
 	 * @param key The value of the key to test.
 	 * @return True if the key is pressed; false otherwise.
 	 */
-	virtual bool test_key(uint8_t key);
+	virtual bool test_key(uint8_t key) = 0;
 
 	/**
 	 * @brief Blocks until a keypress is made for the VM and returns the half
@@ -19,7 +19,7 @@ struct Chip8Keyboard {
 	 * 
 	 * @return The value of the pressed key.
 	 */
-	virtual uint8_t wait_key();
+	virtual uint8_t wait_key() = 0;
 };
 
 
@@ -33,7 +33,7 @@ struct Chip8Display {
 	 * @param screen A pointer to the screen memory, consisting of 32 64-bit
 	 * values, each bit representing a pixel.
 	 */
-	virtual void draw(uint64_t* screen);
+	virtual void draw(uint64_t* screen) = 0;
 };
 
 
@@ -44,22 +44,22 @@ struct Chip8Sound {
 	/**
 	 * @brief Called if the VM is to start emitting sound.
 	 */
-	virtual void start_sound();
+	virtual void start_sound() = 0;
 
 	/**
 	 * @brief Called if the VM is to stop emitting sound.
 	 */
-	virtual void stop_sound();
+	virtual void stop_sound() = 0;
 };
 
 
 /**
- * @brief Observer to  error messages for the Chip-8 VM.
+ * @brief Observer for error messages from the Chip-8 VM.
  */
-struct Chip8Error {
+struct Chip8Message {
 	/**
 	 * @brief Called if the VM crashed. The VM can crash if: memory is accessed
 	 * illegally, the call stack overflows, or the call stack underflows.
 	 */
-	virtual void crashed();
+	virtual void crashed() = 0;
 };

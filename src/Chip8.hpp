@@ -30,11 +30,11 @@ public:
 	 * VM.
 	 * @param snd A reference to the sound output delegate to be used by this
 	 * VM.
-	 * @param err A reference to the error handling delegate to be used by this
+	 * @param msg A reference to the error handling delegate to be used by this
 	 * VM.
 	 */
 	Chip8(Chip8Keyboard& key, Chip8Display& disp,
-		Chip8Sound& snd, Chip8Error& err);
+		Chip8Sound& snd, Chip8Message& msg);
 
 	/**
 	 * @brief Stops the execution of the VM (if running) and destroys the
@@ -112,7 +112,7 @@ protected:
 	Chip8Keyboard&	_keyboard;		// Delegate to handle input (keyboard).
 	Chip8Display&	_display;		// Delegate to handle output (screen).
 	Chip8Sound&		_speaker;		// Delegate to handle output (sound).
-	Chip8Error&		_error;			// Delegate to receive error notifications.
+	Chip8Message&	_error;			// Delegate to receive error notifications.
 	bool			_programmed;	// True if the machine has a program.
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
@@ -129,8 +129,8 @@ protected:
 	// The _clock time of the previous cycle.
 	chro::time_point<chro::steady_clock, _TimeType> _prev_time;
 	_TimeType		_elapsed_second;	// The time since the last timer pulse.
-	static const uint16_t	FONT_OFF;	// VM font memory offset.
-	static const char const	FONT[80];	// VM font data.
+	static const uint16_t FONT_OFF;		// VM font memory offset.
+	static const uint8_t FONT[80];		// VM font data.
 	// Lookup table for instructions of the form kNNN.
 	static const std::map<uint8_t, _InstrFunc> _INSTRUCTIONS1;
 	// Lookup table for instructions of the form kXNN.
@@ -163,8 +163,10 @@ protected:
 	 * stop executing cycles, lock the _lock condition variable, and sets
 	 * _stopped to true. To resume execution, _running must be set true and
 	 * _lock released; _stopped is set by run() when execution resumes.
+	 * 
+	 * @param vm Chip8 reference of the VM to run cycles on.
 	 */
-	void run();
+	static void run(Chip8* vm);
 
 	/**
 	 * @brief Executes the next Chip-8 instruction cycles, given the state of

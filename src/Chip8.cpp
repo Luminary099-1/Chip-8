@@ -5,12 +5,12 @@
 #include <algorithm>
 
 // Macros for accessing specific parts of instructions.
-#define INSTR_A 12 >> (instruction & 0xf000)
-#define INSTR_B 8 >> (instruction & 0x0f00)
-#define INSTR_C 4 >> (instruction & 0x00f0)
-#define INSTR_D instruction & 0x000f
-#define INSTR_ADDR instruction & 0x0fff
-#define INSTR_IMM instruction & 0x00ff
+#define INSTR_A (12 >> (instruction & 0xf000))
+#define INSTR_B (8 >> (instruction & 0x0f00))
+#define INSTR_C (4 >> (instruction & 0x00f0))
+#define INSTR_D (instruction & 0x000f)
+#define INSTR_ADDR (instruction & 0x0fff)
+#define INSTR_IMM (instruction & 0x00ff)
 
 
 /**
@@ -24,7 +24,7 @@ struct Chip8Error : public std::runtime_error {
 const uint16_t Chip8::FONT_OFF = 24;
 
 
-const char const Chip8::FONT[80] = {
+const uint8_t Chip8::FONT[80] = {
 	0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
 	0xf0, 0x10, 0xf0, 0x80, 0xf0,    0xf0, 0x10, 0xf0, 0x10, 0x10,  // 2, 3
 	0x90, 0x90, 0xf0, 0x10, 0x10,    0xf0, 0x80, 0xf0, 0x10, 0xf0,  // 4, 5
@@ -88,14 +88,14 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 
 
 Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp,
-	Chip8Sound& snd, Chip8Error& err)
-	: _keyboard(key), _display(disp), _speaker(snd), _error(err) {
+	Chip8Sound& snd, Chip8Message& msg)
+	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
 	_freq = 500;
 	_programmed = false;
 	_running = false;
 	_stopped = false;
 	_terminating = false;
-	_runner = std::thread(&run);
+	_runner = std::thread(&Chip8::run, this);
 	// _lock = std::condition_variable::condition_variable();
 	_u_lock = std::unique_lock<std::mutex>(_lock_mtx);
 	_clock = std::chrono::steady_clock();
@@ -262,23 +262,23 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
-void Chip8::run() {
+void Chip8::run(Chip8* vm) {
 	while (true) { // Attempt to execute instructions continuously.
-		if (_running) { // If the VM should run:
+		if (vm->_running) { // If the VM should run:
 			// Sleep to attain the desired instruction cycle frequency.
-			std::this_thread::sleep_for(chro::milliseconds(1 / _freq));
+			std::this_thread::sleep_for(chro::milliseconds(1 / vm->_freq));
 			// Run the cycle if in_keyd() is not waiting for a keypress.
 			try {
-				if (!_key_wait) execute_cycle();
+				if (!vm->_key_wait) vm->execute_cycle();
 			} catch (Chip8Error& e) {
-				_crashed = true;
-				_running = false;
+				vm->_crashed = true;
+				vm->_running = false;
 			}
 		} else { // If the VM should not run:
-			_stopped = true; // Indicate the VM state will not change.
-			_lock.wait(_u_lock); // Lock the condition variable.
-			if (_terminating) break; // If the instance is being destroyed.
-			_stopped = false; // Indicate the CM state might change.
+			vm->_stopped = true; // Indicate the VM state will not change.
+			vm->_lock.wait(vm->_u_lock); // Lock the condition variable.
+			if (vm->_terminating) break; // If the instance is being destroyed.
+			vm->_stopped = false; // Indicate the CM state might change.
 		}
 	}
 }
