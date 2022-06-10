@@ -60,6 +60,8 @@ struct Chip8Message {
 	/**
 	 * @brief Called if the VM crashed. The VM can crash if: memory is accessed
 	 * illegally, the call stack overflows, or the call stack underflows.
+	 * 
+	 * @param what The message corresponding to the exception.
 	 */
-	virtual void crashed() = 0;
+	virtual void crashed(const char* what) = 0;
 };

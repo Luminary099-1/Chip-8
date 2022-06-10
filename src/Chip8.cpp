@@ -110,7 +110,7 @@ Chip8::~Chip8() {
 }
 
 
-void Chip8::load_program(std::fstream& program) {
+void Chip8::load_program(std::ifstream& program) {
 	if (!program.is_open())
 		throw std::invalid_argument("Invalid program stream.");
 	_running = false;

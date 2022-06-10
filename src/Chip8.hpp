@@ -51,7 +51,7 @@ public:
 	 * "compiled" Chip-8 byte code, each instruction being two bytes with
 	 * nothing in between each.
 	 */
-	void load_program(std::fstream& program);
+	void load_program(std::ifstream& program);
 
 	/**
 	 * @brief Obtain the current state of the VM.
@@ -142,7 +142,7 @@ protected:
 
 public:
 	// Stores the number of bytes in the state structure (a string).
-	const size_t _state_size = sizeof(_gprf) + sizeof(_pc) + sizeof(_sp)
+	static const size_t _state_size = sizeof(_gprf) + sizeof(_pc) + sizeof(_sp)
 		+ sizeof(_index) + sizeof(_delay) + sizeof(_sound) + sizeof(_mem)
 		+ sizeof(_screen) + 1 + sizeof(uint64_t);
 
