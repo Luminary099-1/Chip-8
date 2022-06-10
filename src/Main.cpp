@@ -6,11 +6,12 @@
 #include <fstream>
 
 
-// 
+// Tell wxWidgets to use the Chip8CPP class for the GUI app.
 wxIMPLEMENT_APP(Chip8CPP);
 
 
 bool Chip8CPP::OnInit() {
+	// TODO: The exit error might be resolvable from here?
 	MainFrame *frame = new MainFrame();
 	frame->Show(true);
 	return true;
@@ -18,38 +19,37 @@ bool Chip8CPP::OnInit() {
 
 
 MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
+	// Configure the window size and position and create the VM.
 	SetSize(1280, 720);
 	Center();
 	_vm = new Chip8(*this, *this, *this, *this);
 	_screenBuf = (uint8_t*) malloc(64 * 32 * 3);
-
+	_screen = new wxImage(64, 32, false);
+	// Set up the "File" menu dropdown.
 	_menu_file = new wxMenu;
 	_menu_file->Append(FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
 	_menu_file->Append(FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
 	_menu_file->Append(FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
 	_menu_file->AppendSeparator();
 	_menu_file->Append(wxID_EXIT);
-
+	// Set up the "Emulation" menu dropdown.
 	_menu_emu = new wxMenu;
 	_menu_emu->Append(EMU_RUN, "&Run\tCtrl-R", "Run the emulator");
 	_menu_emu->Append(EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
 	_menu_emu->Append(EMU_SET_FREQ, "&Set Frequency\t"
 		"Ctrl-F", "Set the instruction frequency of the emulator");
-
+	// Set up the "Help" menu dropdown.
 	_menu_help = new wxMenu;
 	_menu_help->Append(wxID_ABOUT);
-
+	// Add all menu dropdowns to the menu and add the menu and status bars.
 	_menuBar = new wxMenuBar;
 	_menuBar->Append(_menu_file, "&File");
 	_menuBar->Append(_menu_emu, "&Emulation");
 	_menuBar->Append(_menu_help, "&Help");
-
 	SetMenuBar(_menuBar);
 	CreateStatusBar();
-
-	_screen = new wxImage(64, 32, false);
-	this->
-
+	//Bind events for this window.
+	// TODO: Determine if this is the right way to do this.
 	Bind(wxEVT_MENU, &MainFrame::OnOpen, this, FILE_OPEN);
 	Bind(wxEVT_MENU, &MainFrame::OnSave, this, FILE_SAVE);
 	Bind(wxEVT_MENU, &MainFrame::OnLoad, this, FILE_LOAD);
@@ -95,6 +95,7 @@ void MainFrame::stop_sound() {
 
 
 void MainFrame::crashed(const char* what) {
+	// Clear the status message and show an error dialog.
 	SetStatusText("");
 	wxMessageBox(what, "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 }
@@ -168,12 +169,14 @@ void MainFrame::OnLoad(wxCommandEvent& event) {
 
 
 void MainFrame::OnRun(wxCommandEvent& event) {
+	// Attempt to start the VM, show and error if something is wrong.
 	try {
 		_vm->start();
 	} catch (std::logic_error& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 		return;
 	}
+	// Set the status bar to indicate the VM is running.
 	std::string msg = "VM Running @" + _vm->_freq;
 	msg += "Hz";
 	SetStatusText(msg);
@@ -208,6 +211,8 @@ void MainFrame::OnExit(wxCommandEvent& event) {
 
 
 void MainFrame::OnAbout(wxCommandEvent& event) {
+	// Display a message box.
+	// TODO: Finalize the content in this box.
 	wxMessageBox("This program is a virtual machine for the original Chip-8 "
 		"language that most commonly ran on the RCA COSMAC VIP.",
 		"About this Chip-8 Emulator", wxOK | wxICON_INFORMATION | wxCENTER);
