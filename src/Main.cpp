@@ -292,3 +292,75 @@ void MainFrame::on_about(wxCommandEvent& event) {
 		"language that most commonly ran on the RCA COSMAC VIP.",
 		"About this Chip-8 Emulator", wxOK | wxICON_INFORMATION | wxCENTER);
 }
+
+
+Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
+	// Set the size to enforce the aspect ratio.
+	SetSize(2, 1);
+	// Initialize the data structures for the screen image.
+	_image = new wxImage(64, 32, true);
+	_screen_buf = (uint8_t*) malloc(64 * 32 * 3);
+	_image->SetData(_screen_buf, true);
+	// Bind the paint and resize events.
+	Bind(wxEVT_PAINT, &Chip8ScreenPanel::paint_event, this);
+	Bind(wxEVT_SIZE, &Chip8ScreenPanel::on_size, this);
+}
+
+
+Chip8ScreenPanel::~Chip8ScreenPanel() {
+	free(_screen_buf);
+}
+
+
+void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
+	// On a call to draw the panel, call the render.
+	wxPaintDC dc(this);
+    render(dc);
+}
+
+
+void Chip8ScreenPanel::paint_now(uint64_t* screen) {
+	// Iterate over the VM's screen.
+	for (int y = 0; y < 32; y ++) {
+		// Initialize a mask to test pixels in the screen.
+		uint64_t mask = 1ULL << 63;
+		for (int x = 0; x < 64; x ++) {
+			// Compute the base offset in the screen buffer for the next pixel.
+			int offset = x * y * 3;
+			// If the pixel's bit is set, render it white.
+			if (mask & screen[y] > 0) {
+				_screen_buf[offset] = 0xffff;
+				_screen_buf[offset + 1] = 0xffff;
+				_screen_buf[offset + 2] = 0xffff;
+			// Otherwise, render it black.
+			} else {
+				_screen_buf[offset] = 0x0000;
+				_screen_buf[offset + 1] = 0x0000;
+				_screen_buf[offset + 2] = 0x0000;
+			}
+			// Shuffle the bitmask along one bit.
+			mask = 1 >> mask;
+		}
+	}
+	// Update the rendering to the window.
+	_image->SetData(_screen_buf, true);
+	wxClientDC dc(this);
+    render(dc);
+}
+
+
+void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
+	// Refresh causes render.
+	Refresh();
+	event.Skip();
+}
+
+
+void Chip8ScreenPanel::render(wxDC& dc) {
+	// Grab the size of the panel.
+	int w, h;
+	dc.GetSize(&w, &h);
+	// Obtain a bitmap of the image object with the same size; render it.
+	_resized = wxBitmap(_image->Scale(w, h /*, wxIMAGE_QUALITY_HIGH*/));
+	dc.DrawBitmap(_resized, 0, 0, false);
+}
