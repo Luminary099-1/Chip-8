@@ -6,13 +6,8 @@
 #include <fstream>
 
 
-// Tell wxWidgets to use the Chip8CPP class for the GUI app.
-wxIMPLEMENT_APP(Chip8CPP);
-
-
 bool Chip8CPP::OnInit() {
-	// TODO: The exit error might be resolvable from here?
-	MainFrame *frame = new MainFrame();
+	MainFrame* frame = new MainFrame();
 	frame->Show(true);
 	return true;
 }
@@ -95,51 +90,42 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	// Configure the window size and position and create the VM.
 	SetSize(1280, 720);
 	Center();
-	_vm = new Chip8(*this, *this, *this, *this);
-	// Set up the display for the VM.
-	_screenBuf = (uint8_t*) malloc(64 * 32 * 3);
-	_sizer = new wxBoxSizer(wxHORIZONTAL);
-	_screen = new Chip8ScreenPanel(this);
-	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
-	SetSizer(_sizer);
+	_vm = new Chip8(this, this, this, this);
 	// Set up the "File" menu dropdown.
-	_menu_file = new wxMenu;
-	_menu_file->Append(FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
-	_menu_file->Append(FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
-	_menu_file->Append(FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
+	wxMenu* _menu_file = new wxMenu;
+	_menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
+	_menu_file->Append(ID_FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
+	_menu_file->Append(ID_FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
 	_menu_file->AppendSeparator();
 	_menu_file->Append(wxID_EXIT);
 	// Set up the "Emulation" menu dropdown.
-	_menu_emu = new wxMenu;
-	_menu_emu->Append(EMU_RUN, "&Run\tCtrl-R", "Run the emulator");
-	_menu_emu->Append(EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
-	_menu_emu->Append(EMU_SET_FREQ, "&Set Frequency\t"
+	wxMenu* _menu_emu = new wxMenu;
+	_menu_emu->Append(ID_EMU_RUN, "&Run\tCtrl-R", "Run the emulator");
+	_menu_emu->Append(ID_EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
+	_menu_emu->Append(ID_EMU_SET_FREQ, "&Set Frequency\t"
 		"Ctrl-F", "Set the instruction frequency of the emulator");
 	// Set up the "Help" menu dropdown.
-	_menu_help = new wxMenu;
+	wxMenu* _menu_help = new wxMenu;
 	_menu_help->Append(wxID_ABOUT);
 	// Add all menu dropdowns to the menu and add the menu and status bars.
-	_menuBar = new wxMenuBar;
+	wxMenuBar* _menuBar = new wxMenuBar;
 	_menuBar->Append(_menu_file, "&File");
 	_menuBar->Append(_menu_emu, "&Emulation");
 	_menuBar->Append(_menu_help, "&Help");
 	SetMenuBar(_menuBar);
 	CreateStatusBar();
+	// Set up the display for the VM.
+	wxBoxSizer* _sizer = new wxBoxSizer(wxHORIZONTAL);
+	_screen = new Chip8ScreenPanel(this);
+	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
+	SetSizer(_sizer);
 	//Bind events for this window.
-	// TODO: Determine if this is the right way to do this.
-	Bind(wxEVT_MENU, &MainFrame::on_open, this, FILE_OPEN);
-	Bind(wxEVT_MENU, &MainFrame::on_save, this, FILE_SAVE);
-	Bind(wxEVT_MENU, &MainFrame::on_load, this, FILE_LOAD);
-	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, EMU_SET_FREQ);
+	Bind(wxEVT_MENU, &MainFrame::on_open, this, ID_FILE_OPEN);
+	Bind(wxEVT_MENU, &MainFrame::on_save, this, ID_FILE_SAVE);
+	Bind(wxEVT_MENU, &MainFrame::on_load, this, ID_FILE_LOAD);
+	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
-	// Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnExit, this);
-}
-
-
-MainFrame::~MainFrame() {
-	delete _vm;
-	free(_screenBuf);
 }
 
 
@@ -281,8 +267,7 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 
 
 void MainFrame::on_exit(wxCommandEvent& event) {
-	// TODO: Sort out the runtime error from calling this.
-	// Close(true);
+	Close(true);
 }
 
 

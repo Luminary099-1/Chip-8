@@ -20,7 +20,7 @@ public:
 	 * @return Returns true as the application is to continue running until
 	 * closed from the UI.
 	 */
-	virtual bool OnInit() override;
+	bool OnInit() override;
 };
 
 
@@ -88,20 +88,10 @@ public:
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
 	 */
 	MainFrame();
-	/**
-	 * @brief Destroys the MainFrame instace.
-	 */
-	~MainFrame();
 
 private:
 	Chip8* 				_vm;		// Chip-8 VM.
-	uint8_t*			_screenBuf;	// Chip-8 screen "buffer".
-	wxMenuBar*  		_menuBar;	// Main window menu bar.
-	wxMenu*     		_menu_file;	// Main window menu bar "File" tab.
-	wxMenu*				_menu_emu;	// Main window menu bar "Emulation" tab.
-	wxMenu*     		_menu_help;	// Main window menu bar "Help" tab.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
-	wxBoxSizer*			_sizer;		// Sizer to layout the Chip-8 screen.
 
 	/**
 	 * @brief 
@@ -215,10 +205,15 @@ private:
  * @brief Enumeration of all events required in the UI.
  */
 enum {
-	FILE_OPEN = 0,
-	FILE_SAVE,
-	FILE_LOAD,
-	EMU_RUN,
-	EMU_STOP,
-	EMU_SET_FREQ,
+	ID_FILE_OPEN = 0,
+	ID_FILE_SAVE,
+	ID_FILE_LOAD,
+	ID_FILE_EXIT,
+	ID_EMU_RUN,
+	ID_EMU_STOP,
+	ID_EMU_SET_FREQ,
 };
+
+
+// Tell wxWidgets to use the Chip8CPP class for the GUI app.
+wxIMPLEMENT_APP(Chip8CPP);

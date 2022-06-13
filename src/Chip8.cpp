@@ -87,8 +87,8 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 };
 
 
-Chip8::Chip8(Chip8Keyboard& key, Chip8Display& disp,
-	Chip8Sound& snd, Chip8Message& msg)
+Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
+	Chip8Sound* snd, Chip8Message* msg)
 	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
 	_freq = 500;
 	_programmed = false;
@@ -302,10 +302,10 @@ void Chip8::execute_cycle() {
 	instr_func(*this, instruction);
 	// Set the sound output to reflect the value of the timer.
 	if (_sounding && _sound == 0) {
-		_speaker.stop_sound();
+		_speaker->stop_sound();
 		_sounding = false;
 	} else if (!_sounding && _sound >= 2) {
-		_speaker.start_sound();
+		_speaker->start_sound();
 		_sounding = true;
 	}
 	// Increment the program counter if the instruction was not a jump.
@@ -368,7 +368,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 
 void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
 	for (size_t i = 0; i < sizeof(vm._screen); i ++) vm._screen[i] = 0;
-	vm._display.draw(vm._screen);
+	vm._display->draw(vm._screen);
 }
 
 
@@ -516,17 +516,17 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 		// Update the screen memory with the new line.
 		vm._screen[ypos + y] = new_line;
 	}
-	vm._display.draw(vm._screen);
+	vm._display->draw(vm._screen);
 }
 
 
 void Chip8::in_skpr(Chip8& vm, uint16_t instruction) { // EX9E
-	if (vm._keyboard.test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+	if (vm._keyboard->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
 }
 
 
 void Chip8::in_skup(Chip8& vm, uint16_t instruction) { // EXA1
-	if (!vm._keyboard.test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+	if (!vm._keyboard->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
 }
 
 
@@ -540,7 +540,7 @@ void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
 	// Block cycles until they key press is made.
 	vm._key_wait = true;
 	// Wait for a keypress that takes place when the VM is running.
-	do key = vm._keyboard.wait_key();
+	do key = vm._keyboard->wait_key();
 	while (!vm._running);
 	// Store the key value.
 	vm._gprf[INSTR_B] = key;

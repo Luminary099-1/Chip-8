@@ -33,8 +33,8 @@ public:
 	 * @param msg A reference to the error handling delegate to be used by this
 	 * VM.
 	 */
-	Chip8(Chip8Keyboard& key, Chip8Display& disp,
-		Chip8Sound& snd, Chip8Message& msg);
+	Chip8(Chip8Keyboard* key, Chip8Display* disp,
+		Chip8Sound* snd, Chip8Message* msg);
 
 	/**
 	 * @brief Stops the execution of the VM (if running) and destroys the
@@ -109,10 +109,10 @@ protected:
 	uint8_t			_mem[4096];		// VM memory.
 	uint64_t		_screen[32];	// Screen memory (1 dword = 1 row).
 
-	Chip8Keyboard&	_keyboard;		// Delegate to handle input (keyboard).
-	Chip8Display&	_display;		// Delegate to handle output (screen).
-	Chip8Sound&		_speaker;		// Delegate to handle output (sound).
-	Chip8Message&	_error;			// Delegate to receive error notifications.
+	Chip8Keyboard*	_keyboard;		// Delegate to handle input (keyboard).
+	Chip8Display*	_display;		// Delegate to handle output (screen).
+	Chip8Sound*		_speaker;		// Delegate to handle output (sound).
+	Chip8Message*	_error;			// Delegate to receive error notifications.
 	bool			_programmed;	// True if the machine has a program.
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
