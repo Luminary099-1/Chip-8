@@ -24,6 +24,60 @@ public:
 };
 
 
+// https://wiki.wxwidgets.org/An_image_panel
+class Chip8ScreenPanel : public wxPanel {
+private:
+	uint8_t* _screen_buf;	// Space to store the image before passing to WX.
+	wxImage* _image;		// The image that will contain the screen data.
+	wxBitmap _resized;		// Stores the resized screen to be rendered.
+
+public:
+	/**
+	 * @brief Construct a new Chip8ScreenPanel object.
+	 * 
+	 * @param parent The parent frame to this panel.
+	 */
+	Chip8ScreenPanel(wxFrame* parent);
+
+	/**
+	 * @brief Destroy the Chip8ScreenPanel.
+	 */
+	~Chip8ScreenPanel();
+
+	/**
+	 * @brief Handles the paint events for the panel by having the image
+	 * rendered to the panel.
+	 * 
+	 * @param event The paint event being passed down.
+	 */
+	void paint_event(wxPaintEvent& event);
+
+	/**
+	 * @brief Updates the data in the member _image with the Chip-8 VM screen
+	 * data that is referenced.
+	 * 
+	 * @param screen A pointer to an array of 32, 64-bit unsigned integers that
+	 * makes up the screen of the Chip-8 VM.
+	 */
+	void paint_now(uint64_t* screen);
+
+	/**
+	 * @brief Handles the resize events for the panel by having the image
+	 * rendered to fill the new size.
+	 * 
+	 * @param event The size event being passed down (skipped).
+	 */
+	void on_size(wxSizeEvent& event);
+
+	/**
+	 * @brief Renders the current contents of the member _image to the panel.
+	 * 
+	 * @param dc The device context onto which the _image is to be rendered.
+	 */
+	void render(wxDC& dc);
+};
+
+
 /**
  * @brief Frame class for the primary window UI of the emulator.
  */
@@ -40,14 +94,14 @@ public:
 	~MainFrame();
 
 private:
-	Chip8* 		_vm;			// Chip-8 VM.
-	uint8_t*	_screenBuf;		// Chip-8 screen "buffer".
-
-	wxMenuBar*  _menuBar;		// Main window menu bar.
-	wxMenu*     _menu_file;		// Main window menu bar "File" tab.
-	wxMenu*		_menu_emu;		// Main window menu bar "Emulation" tab.
-	wxMenu*     _menu_help;		// Main window menu bar "Help" tab.
-	wxImage*	_screen;
+	Chip8* 				_vm;		// Chip-8 VM.
+	uint8_t*			_screenBuf;	// Chip-8 screen "buffer".
+	wxMenuBar*  		_menuBar;	// Main window menu bar.
+	wxMenu*     		_menu_file;	// Main window menu bar "File" tab.
+	wxMenu*				_menu_emu;	// Main window menu bar "Emulation" tab.
+	wxMenu*     		_menu_help;	// Main window menu bar "Help" tab.
+	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
+	wxBoxSizer*			_sizer;		// Sizer to layout the Chip-8 screen.
 
 	/**
 	 * @brief 
@@ -94,7 +148,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "File->Open".
 	 */
-	void OnOpen(wxCommandEvent& event);
+	void on_open(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "File->Save" button on the menu bar, pausing the VM
@@ -103,7 +157,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "File->Save".
 	 */
-	void OnSave(wxCommandEvent& event);
+	void on_save(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "File->Load" button on the menu bar, opening a dialog
@@ -111,7 +165,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "File->Load".
 	 */
-	void OnLoad(wxCommandEvent& event);
+	void on_load(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "File->Exit" button on the menu bar, closing the
@@ -119,7 +173,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "File->Run".
 	 */
-	void OnExit(wxCommandEvent& event);
+	void on_exit(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "Emulation->Run" button on the menu bar, starting the
@@ -127,7 +181,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "Emulation->Run".
 	 */
-	void OnRun(wxCommandEvent& event);
+	void on_run(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "Emulation->Stop" button on the menu bar, stopping the
@@ -135,7 +189,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "Emulation->Stop".
 	 */
-	void OnStop(wxCommandEvent& event);
+	void on_stop(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "Emulation->Set Frequency" button on the menu bar,
@@ -145,7 +199,7 @@ private:
  	 * @param event The event produced when the user presses "Emulation->Set
 	 * Frequency".
 	 */
-	void OnSetFreq(wxCommandEvent& event);
+	void on_set_freq(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "Help->About" button on the menu bar, showing a dialog
@@ -153,7 +207,7 @@ private:
 	 * 
  	 * @param event The event produced when the user presses "Help->About".
 	 */
-	void OnAbout(wxCommandEvent& event);
+	void on_about(wxCommandEvent& event);
 };
 
 

@@ -23,8 +23,12 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	SetSize(1280, 720);
 	Center();
 	_vm = new Chip8(*this, *this, *this, *this);
+	// Set up the display for the VM.
 	_screenBuf = (uint8_t*) malloc(64 * 32 * 3);
-	_screen = new wxImage(64, 32, false);
+	_sizer = new wxBoxSizer(wxHORIZONTAL);
+	_screen = new Chip8ScreenPanel(this);
+	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
+	SetSizer(_sizer);
 	// Set up the "File" menu dropdown.
 	_menu_file = new wxMenu;
 	_menu_file->Append(FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
@@ -50,13 +54,12 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	CreateStatusBar();
 	//Bind events for this window.
 	// TODO: Determine if this is the right way to do this.
-	Bind(wxEVT_MENU, &MainFrame::OnOpen, this, FILE_OPEN);
-	Bind(wxEVT_MENU, &MainFrame::OnSave, this, FILE_SAVE);
-	Bind(wxEVT_MENU, &MainFrame::OnLoad, this, FILE_LOAD);
-	Bind(wxEVT_MENU, &MainFrame::OnLoad, this, FILE_LOAD);
-	Bind(wxEVT_MENU, &MainFrame::OnSetFreq, this, EMU_SET_FREQ);
-	Bind(wxEVT_MENU, &MainFrame::OnAbout, this, wxID_ABOUT);
-	Bind(wxEVT_MENU, &MainFrame::OnExit, this, wxID_EXIT);
+	Bind(wxEVT_MENU, &MainFrame::on_open, this, FILE_OPEN);
+	Bind(wxEVT_MENU, &MainFrame::on_save, this, FILE_SAVE);
+	Bind(wxEVT_MENU, &MainFrame::on_load, this, FILE_LOAD);
+	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, EMU_SET_FREQ);
+	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
+	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
 	// Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnExit, this);
 }
 
@@ -80,7 +83,7 @@ uint8_t MainFrame::wait_key() {
 
 
 void MainFrame::draw(uint64_t* screen) {
-
+	_screen->paint_now(screen);
 }
 
 
@@ -101,7 +104,7 @@ void MainFrame::crashed(const char* what) {
 }
 
 
-void MainFrame::OnOpen(wxCommandEvent& event) {
+void MainFrame::on_open(wxCommandEvent& event) {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog openDialog(this, "Load Chip-8 Program", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
@@ -120,7 +123,7 @@ void MainFrame::OnOpen(wxCommandEvent& event) {
 }
 
 
-void MainFrame::OnSave(wxCommandEvent& event) {
+void MainFrame::on_save(wxCommandEvent& event) {
 	// Pause the VM is it is running.
 	bool running = _vm->is_running();
 	if (running) _vm->stop();
@@ -145,7 +148,7 @@ void MainFrame::OnSave(wxCommandEvent& event) {
 }
 
 
-void MainFrame::OnLoad(wxCommandEvent& event) {
+void MainFrame::on_load(wxCommandEvent& event) {
 	// Pause the VM is it is running.
 	if (_vm->is_running()) _vm->stop();
 	// Scratch space for the state.
@@ -168,7 +171,7 @@ void MainFrame::OnLoad(wxCommandEvent& event) {
 }
 
 
-void MainFrame::OnRun(wxCommandEvent& event) {
+void MainFrame::on_run(wxCommandEvent& event) {
 	// Attempt to start the VM, show and error if something is wrong.
 	try {
 		_vm->start();
@@ -183,12 +186,12 @@ void MainFrame::OnRun(wxCommandEvent& event) {
 }
 
 
-void MainFrame::OnStop(wxCommandEvent& event) {
+void MainFrame::on_stop(wxCommandEvent& event) {
 	_vm->stop();
 }
 
 
-void MainFrame::OnSetFreq(wxCommandEvent& event) {
+void MainFrame::on_set_freq(wxCommandEvent& event) {
 	// Pause the VM is it is running.
 	bool running = _vm->is_running();
 	if (running) _vm->stop();
@@ -204,16 +207,88 @@ void MainFrame::OnSetFreq(wxCommandEvent& event) {
 }
 
 
-void MainFrame::OnExit(wxCommandEvent& event) {
+void MainFrame::on_exit(wxCommandEvent& event) {
 	// TODO: Sort out the runtime error from calling this.
 	// Close(true);
 }
 
 
-void MainFrame::OnAbout(wxCommandEvent& event) {
+void MainFrame::on_about(wxCommandEvent& event) {
 	// Display a message box.
 	// TODO: Finalize the content in this box.
 	wxMessageBox("This program is a virtual machine for the original Chip-8 "
 		"language that most commonly ran on the RCA COSMAC VIP.",
 		"About this Chip-8 Emulator", wxOK | wxICON_INFORMATION | wxCENTER);
+}
+
+
+Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
+	// Set the size to enforce the aspect ratio.
+	SetSize(2, 1);
+	// Initialize the data structures for the screen image.
+	_image = new wxImage(64, 32, true);
+	_screen_buf = (uint8_t*) malloc(64 * 32 * 3);
+	_image->SetData(_screen_buf, true);
+	// Bind the paint and resize events.
+	Bind(wxEVT_PAINT, &Chip8ScreenPanel::paint_event, this);
+	Bind(wxEVT_SIZE, &Chip8ScreenPanel::on_size, this);
+}
+
+
+Chip8ScreenPanel::~Chip8ScreenPanel() {
+	free(_screen_buf);
+}
+
+
+void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
+	// On a call to draw the panel, call the render.
+	wxPaintDC dc(this);
+    render(dc);
+}
+
+
+void Chip8ScreenPanel::paint_now(uint64_t* screen) {
+	// Iterate over the VM's screen.
+	for (int y = 0; y < 32; y ++) {
+		// Initialize a mask to test pixels in the screen.
+		uint64_t mask = 1ULL << 63;
+		for (int x = 0; x < 64; x ++) {
+			// Compute the base offset in the screen buffer for the next pixel.
+			int offset = x * y * 3;
+			// If the pixel's bit is set, render it white.
+			if (mask & screen[y] > 0) {
+				_screen_buf[offset] = 0xffff;
+				_screen_buf[offset + 1] = 0xffff;
+				_screen_buf[offset + 2] = 0xffff;
+			// Otherwise, render it black.
+			} else {
+				_screen_buf[offset] = 0x0000;
+				_screen_buf[offset + 1] = 0x0000;
+				_screen_buf[offset + 2] = 0x0000;
+			}
+			// Shuffle the bitmask along one bit.
+			mask = 1 >> mask;
+		}
+	}
+	// Update the rendering to the window.
+	_image->SetData(_screen_buf, true);
+	wxClientDC dc(this);
+    render(dc);
+}
+
+
+void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
+	// Refresh causes render.
+	Refresh();
+	event.Skip();
+}
+
+
+void Chip8ScreenPanel::render(wxDC& dc) {
+	// Grab the size of the panel.
+	int w, h;
+	dc.GetSize(&w, &h);
+	// Obtain a bitmap of the image object with the same size; render it.
+	_resized = wxBitmap(_image->Scale(w, h /*, wxIMAGE_QUALITY_HIGH*/));
+	dc.DrawBitmap(_resized, 0, 0, false);
 }
