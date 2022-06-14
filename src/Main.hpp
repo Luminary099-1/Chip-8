@@ -3,6 +3,7 @@
 #include "Chip8.hpp"
 
 // For compilers that support precompilation, includes "wx/wx.h".
+#include <wx/sound.h>
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
 	#include <wx/wx.h>
@@ -92,6 +93,7 @@ public:
 private:
 	Chip8* 				_vm;		// Chip-8 VM.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
+	wxSound*			_sound;		// Emits the tone played by the Chip-8 VM.
 
 	/**
 	 * @brief 

@@ -114,7 +114,8 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	_menuBar->Append(_menu_help, "&Help");
 	SetMenuBar(_menuBar);
 	CreateStatusBar();
-	// Set up the display for the VM.
+	// Set up the sound display for the VM.
+	_sound = new wxSound("500.wav", false);
 	wxBoxSizer* _sizer = new wxBoxSizer(wxHORIZONTAL);
 	_screen = new Chip8ScreenPanel(this);
 	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
@@ -146,13 +147,14 @@ void MainFrame::draw(uint64_t* screen) {
 }
 
 
+// https://onlinetonegenerator.com/
 void MainFrame::start_sound() {
-
+	_sound->Play(wxSOUND_ASYNC | wxSOUND_LOOP);
 }
 
 
 void MainFrame::stop_sound() {
-
+	_sound->Stop();
 }
 
 
