@@ -94,6 +94,9 @@ private:
 	Chip8* 				_vm;		// Chip-8 VM.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
 	wxSound*			_sound;		// Emits the tone played by the Chip-8 VM.
+	std::atomic<int>	_pressed;	// Stores the key just pressed, or -1.
+	std::atomic<int>	_key_wait;	// True if the VM is waiting for a keypress.
+	std::map<uint8_t, bool> _key_states; // Stores the state of each Chip-8 key.
 
 	/**
 	 * @brief 
@@ -133,6 +136,24 @@ private:
 	 * @param what 
 	 */
 	void crashed(const char* what) override;
+
+	/**
+	 * @brief Handles instances where the user presses a key on the keyboard. If
+	 * the key belongs to those of the Chip-8 VM, its state is regarded as
+	 * "pressed" and its value is passed to the VM if it is waiting.
+	 * 
+	 * @param event The event produced when the user pressed a key.
+	 */
+	void on_key_down(wxKeyEvent& event);
+
+	/**
+	 * @brief Handles instances where the user releases a key on the keyboard.
+	 * If the key belongs to those of the Chip-8 VM, its state is regarded as
+	 * "unpressed".
+	 * 
+	 * @param event The event produced when the user releases a key.
+	 */
+	void on_key_up(wxKeyEvent& event);
 
 	/**
 	 * @brief Handles the "File->Open" button on the menu bar, opening a dialog

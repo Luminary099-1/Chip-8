@@ -6,9 +6,32 @@
 #include <fstream>
 
 
+// Maps wxWidget key input characters to numerical values for the Chip-8 VM.
+const std::map<wxChar, uint8_t> key_map = {
+	{'0', 0x00},
+	{'1', 0x01},
+	{'2', 0x02},
+	{'3', 0x03},
+	{'4', 0x04},
+	{'5', 0x05},
+	{'6', 0x06},
+	{'7', 0x07},
+	{'8', 0x08},
+	{'9', 0x09},
+	{'a', 0x0a},
+	{'b', 0x0b},
+	{'c', 0x0c},
+	{'d', 0x0d},
+	{'e', 0x0e},
+	{'f', 0x0f}
+};
+
+
 bool Chip8CPP::OnInit() {
+	// Create and show the main window.
 	MainFrame* frame = new MainFrame();
 	frame->Show(true);
+	// Indicate the app should continue running after returning.
 	return true;
 }
 
@@ -121,24 +144,37 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
 	SetSizer(_sizer);
 	//Bind events for this window.
+	Bind(wxEVT_KEY_DOWN, &MainFrame::on_key_down, this);
+	Bind(wxEVT_KEY_UP, &MainFrame::on_key_up, this);
 	Bind(wxEVT_MENU, &MainFrame::on_open, this, ID_FILE_OPEN);
 	Bind(wxEVT_MENU, &MainFrame::on_save, this, ID_FILE_SAVE);
 	Bind(wxEVT_MENU, &MainFrame::on_load, this, ID_FILE_LOAD);
 	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
+	// Initialize the keyboard input handling variables.
+	_pressed = -1;
+	_key_wait = false;
+	for (int i = 0; i < 16; i ++) _key_states[i] = false;
 }
 
 
 bool MainFrame::test_key(uint8_t key) {
-	// TODO: Complete this.
-	return false;
+	return _key_states.at(key);
 }
 
 
 uint8_t MainFrame::wait_key() {
-	// TODO: Complete this.
-	return 0;
+	// Indicate the VM is waiting for a keypress.
+	_key_wait = true;
+	// Wait for the keypress.
+	while (_key_wait);
+	// Grab the value of the pressed key.
+	int key = _pressed;
+	// Reset the value passing variable.
+	_pressed = -1;
+	// Return the pressed key value.
+	return key;
 }
 
 
@@ -162,6 +198,34 @@ void MainFrame::crashed(const char* what) {
 	// Clear the status message and show an error dialog.
 	SetStatusText("");
 	wxMessageBox(what, "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
+}
+
+
+void MainFrame::on_key_up(wxKeyEvent& event) {
+	// Unset the key in the map if it is valid.
+	try {
+		_key_states[key_map.at(event.GetUnicodeKey())] = false;
+	} catch (std::out_of_range& e) {
+		return;
+	}
+}
+
+
+void MainFrame::on_key_down(wxKeyEvent& event) {
+	// Set the key in the map if it is valid.
+	try {
+		int key = key_map.at(event.GetUnicodeKey());
+		_key_states[key] = true;
+		// If the VM is waiting for a keypress.
+		if (_key_wait) {
+			// Set the key value passing variable.
+			_pressed = key;
+			// Indicate the wait is over.
+			_key_wait = false;
+		}
+	} catch (std::out_of_range& e) {
+		return;
+	}
 }
 
 

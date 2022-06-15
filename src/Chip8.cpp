@@ -262,7 +262,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
-void Chip8::run(Chip8* vm) {
+void Chip8::run(Chip8* vm) { // TODO: Reconsider the separation of the runner thread.
 	while (true) { // Attempt to execute instructions continuously.
 		if (vm->_running) { // If the VM should run:
 			// Sleep to attain the desired instruction cycle frequency.
