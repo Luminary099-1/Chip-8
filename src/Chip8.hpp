@@ -49,7 +49,7 @@ public:
 	 * @param program A reference to an open filestream that contains the
 	 * program to be loaded. The contents of the steam are assumed to be in
 	 * "compiled" Chip-8 byte code, each instruction being two bytes with
-	 * nothing in between each.
+	 * nothing in between each. The stream must be open in binary mode.
 	 */
 	void load_program(std::ifstream& program);
 

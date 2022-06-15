@@ -238,8 +238,7 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	// Grab the selected file path.
 	std::string path = openDialog.GetPath();
 	// Open the file and pass it to the VM.
-	std::ifstream program_file;
-	program_file.open(path);
+	std::ifstream program_file(path, std::fstream::binary);
 	try {
 		_vm->load_program(program_file);
 	} catch (std::exception& e) {
@@ -322,7 +321,7 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 	if (running) _vm->stop();
 	// Construct a dialog to select the desired frequency,
 	wxNumberEntryDialog freqDialog(this, "Set Emulation Frequency", "", "",
-		500, 1, 10000);
+		_vm->_freq, 1, 10000);
 	// Return if the user doesn't select a file.
 	if (freqDialog.ShowModal() == wxID_CANCEL) return;
 	// Set the frequency.

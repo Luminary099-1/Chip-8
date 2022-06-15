@@ -5,9 +5,9 @@
 #include <algorithm>
 
 // Macros for accessing specific parts of instructions.
-#define INSTR_A (12 >> (instruction & 0xf000))
-#define INSTR_B (8 >> (instruction & 0x0f00))
-#define INSTR_C (4 >> (instruction & 0x00f0))
+#define INSTR_A ((instruction & 0xf000) >> 12)
+#define INSTR_B ((instruction & 0x0f00) >> 8)
+#define INSTR_C ((instruction & 0x00f0) >> 4)
 #define INSTR_D (instruction & 0x000f)
 #define INSTR_ADDR (instruction & 0x0fff)
 #define INSTR_IMM (instruction & 0x00ff)
@@ -110,6 +110,7 @@ Chip8::~Chip8() {
 }
 
 
+// TODO: Change this to take the path instead of the extension. Consider doing the same for the state handlers.
 void Chip8::load_program(std::ifstream& program) {
 	if (!program.is_open())
 		throw std::invalid_argument("Invalid program stream.");
@@ -129,12 +130,13 @@ void Chip8::load_program(std::ifstream& program) {
 	uint16_t count = 0;
 	uint16_t instruction = 0;
 	while (!program.eof()) {
-		// Read in each instruction.
-		program.read((char*) instruction, 2);
+		// Read in each instruction and swap endianness.
+		program.read((char*) &instruction, 2);
+		instruction = (instruction >> 8) | (instruction << 8);
 		// Ensure it corresponds to a real Chip8 instruction.
-		_InstrFunc func = nullptr;
+		_InstrFunc func;
 		try {
-		func = get_instr_func(instruction);
+			func = get_instr_func(instruction);
 		} catch (Chip8Error& e) {
 			std::string msg = "Invalid instruction: instruction "
 				+ std::to_string(count);
@@ -350,12 +352,12 @@ bool Chip8::is_crashed() {
 
 
 uint16_t Chip8::get_hword(uint16_t addr) {
-	return _mem[addr] * 256 + _mem[addr + 1];
+	return (_mem[addr] << 8) + _mem[addr + 1];
 }
 
 
 void Chip8::set_hword(uint16_t addr, uint16_t hword) {
-	_mem[addr] = (8 >> hword);
+	_mem[addr] = hword >> 8;
 	_mem[addr + 1] = hword & 0xff;
 }
 
@@ -457,7 +459,7 @@ void Chip8::in_sub(Chip8& vm, uint16_t instruction) { // 8XY5
 
 void Chip8::in_shr(Chip8& vm, uint16_t instruction) { // 8XY6
 	vm._gprf[0xf] = vm._gprf[INSTR_C] & 0x01;
-	vm._gprf[INSTR_B] = 1 >> vm._gprf[INSTR_C];
+	vm._gprf[INSTR_B] = vm._gprf[INSTR_C] >> 1;
 }
 
 
@@ -470,7 +472,7 @@ void Chip8::in_suba(Chip8& vm, uint16_t instruction) { // 8XY7
 
 
 void Chip8::in_shl(Chip8& vm, uint16_t instruction) { // 8XYE
-	vm._gprf[0xf] = 7 >> (vm._gprf[INSTR_C] & 0x80);
+	vm._gprf[0xf] = (vm._gprf[INSTR_C] & 0x80) >> 7;
 	vm._gprf[INSTR_B] = vm._gprf[INSTR_C] << 1;
 }
 
@@ -584,9 +586,9 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 	if (vm._index < 0x200 || vm._index + 2 > 0xe8f)
 		Chip8Error("Illegal VM memory operation.");
 	// Store each digit in memory.
-	vm._mem[vm._index] = 0xf >> (scratch & 0xf0000);
-	vm._mem[vm._index + 1] = 0xb >> (scratch & 0xf000);
-	vm._mem[vm._index + 2] = 0x8 >> (scratch & 0xf00);
+	vm._mem[vm._index] = (scratch & 0xf0000) >> 0xf;
+	vm._mem[vm._index + 1] = (scratch & 0xf000) >> 0xb;
+	vm._mem[vm._index + 2] = (scratch & 0xf00) >> 0x8;
 }
 
 
