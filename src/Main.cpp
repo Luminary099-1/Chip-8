@@ -137,6 +137,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	_menuBar->Append(_menu_help, "&Help");
 	SetMenuBar(_menuBar);
 	CreateStatusBar();
+	SetStatusText("No program loaded, idle");
 	// Set up the sound display for the VM.
 	_sound = new wxSound("500.wav", false);
 	wxBoxSizer* _sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -149,6 +150,8 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_MENU, &MainFrame::on_open, this, ID_FILE_OPEN);
 	Bind(wxEVT_MENU, &MainFrame::on_save, this, ID_FILE_SAVE);
 	Bind(wxEVT_MENU, &MainFrame::on_load, this, ID_FILE_LOAD);
+	Bind(wxEVT_MENU, &MainFrame::on_run, this, ID_EMU_RUN);
+	Bind(wxEVT_MENU, &MainFrame::on_stop, this, ID_EMU_STOP);
 	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
@@ -241,6 +244,7 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	std::ifstream program_file(path, std::fstream::binary);
 	try {
 		_vm->load_program(program_file);
+		SetStatusText("Idle");
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 	}
@@ -296,7 +300,7 @@ void MainFrame::on_load(wxCommandEvent& event) {
 
 
 void MainFrame::on_run(wxCommandEvent& event) {
-	// Attempt to start the VM, show and error if something is wrong.
+	// Attempt to start the VM; show and error if something is wrong.
 	try {
 		_vm->start();
 	} catch (std::logic_error& e) {
@@ -304,14 +308,20 @@ void MainFrame::on_run(wxCommandEvent& event) {
 		return;
 	}
 	// Set the status bar to indicate the VM is running.
-	std::string msg = "VM Running @" + _vm->_freq;
+	std::string msg = "VM Running @" + std::to_string(_vm->_freq);
 	msg += "Hz";
 	SetStatusText(msg);
 }
 
 
 void MainFrame::on_stop(wxCommandEvent& event) {
-	_vm->stop();
+	try {
+		_vm->stop();
+		SetStatusText("Idle");
+	} catch (std::logic_error& e) {
+		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
+		return;
+	}
 }
 
 

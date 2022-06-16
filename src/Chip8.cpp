@@ -152,12 +152,12 @@ void Chip8::get_state(uint8_t* destination) {
 	if (_crashed) throw std::logic_error("VM has crashed.");
 	bool running = _running;
 	if (running) stop();
-	uint16_t* destination16 = (uint16_t*) destination;
-	uint64_t* destination64 = (uint64_t*) destination;
+	uint16_t* destination16 = (uint16_t*) destination; // TODO: Get rid of this nonsense.
+	uint64_t* destination64 = (uint64_t*) destination; // TODO: Get rid of this nonsense.
 	size_t offset = 0;
 	memcpy(destination + offset, _gprf, sizeof(_gprf));
 	offset += sizeof(_gprf);
-	destination16[offset] = _pc; // TODO: Determine if truncation is a problem.
+	destination16[offset] = _pc;
 	offset += sizeof(_pc);
 	destination16[offset] = _sp;
 	offset += sizeof(_sp);
@@ -183,12 +183,12 @@ void Chip8::get_state(uint8_t* destination) {
 void Chip8::set_state(uint8_t* source) {
 	_running = false;
 	stop();
-	uint16_t* source16 = (uint16_t*) source;
-	uint64_t* source64 = (uint64_t*) source;
+	uint16_t* source16 = (uint16_t*) source; // TODO: Get rid of this nonsense.
+	uint64_t* source64 = (uint64_t*) source; // TODO: Get rid of this nonsense.
 	size_t offset = 0;
 	memcpy(_gprf, source + offset, sizeof(_gprf));
 	offset += sizeof(_gprf);
-	_pc = source16[offset]; // TODO: Determine if truncation is a problem.
+	_pc = source16[offset];
 	offset += sizeof(_pc);
 	_sp = source16[offset];
 	offset += sizeof(_sp);
@@ -222,8 +222,8 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	
 	try { // Use the instruction to determine which map to search.
 		if (a == 0x0) { // Leading half byte 0.
-			if (d == 0x0) return in_clr;
-			else if (d == 0xe) return in_rts;
+			if (d == 0x0) func = in_clr;
+			else if (d == 0xe) func = in_rts;
 			else throw std::out_of_range("");
 
 		} else if (a == 0xd) // DXYN
@@ -256,6 +256,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 		if (addr < 0x200 || addr > 0xe8f)
 			std::out_of_range("Illegal VM memory operation.");
 	}
+	return func;
 }
 
 
@@ -292,8 +293,8 @@ void Chip8::execute_cycle() {
 	// If the 60Hz timer has cycled, update the timers and reset it.
 	if (_elapsed_second.count() >= 1000) {
 		_elapsed_second -= _TimeType(1000);
-		_delay = std::min(_delay - 1, 0);
-		_sound = std::min(_sound - 1, 0);
+		if (_delay != 0) _delay -= 1;
+		if (_sound != 0) _sound -= 1;
 	}
 	// Execute the next instruction.
 	instr_func(*this, instruction);
@@ -328,7 +329,7 @@ void Chip8::start() {
 void Chip8::stop() {
 	// Ensure the VM can be stopped.
 	if (!_running || _stopped)
-		throw std::logic_error("VM is already not running.");
+		throw std::logic_error("The VM is already not running.");
 	// Signal to the runner to wait.
 	_running = false;
 	// Wait until the runner finishes its cycle.
