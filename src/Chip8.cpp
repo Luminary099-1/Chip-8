@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <algorithm>
+#include <sstream>
 
 // Macros for accessing specific parts of instructions.
 #define INSTR_A ((instruction & 0xf000) >> 12)
@@ -111,6 +112,8 @@ Chip8::~Chip8() {
 
 
 // TODO: Change this to take the path instead of the extension. Consider doing the same for the state handlers.
+// TODO: Consider what happens if the load fails, i.e. is the state not otherwise changed?
+// TODO: Consider what happens if the loaded program is too large.
 void Chip8::load_program(std::ifstream& program) {
 	if (!program.is_open())
 		throw std::invalid_argument("Invalid program stream.");
@@ -125,7 +128,6 @@ void Chip8::load_program(std::ifstream& program) {
 	_index = 0;
 	_delay = 0;
 	_sound = 0;
-
 	// Store the number of instructions read and make space for each one.
 	uint16_t count = 0;
 	uint16_t instruction = 0;
@@ -133,26 +135,10 @@ void Chip8::load_program(std::ifstream& program) {
 		// Read in each instruction and swap endianness.
 		program.read((char*) &instruction, 2);
 		instruction = (instruction >> 8) | (instruction << 8);
-		// Ensure it corresponds to a real Chip8 instruction.
-		_InstrFunc func;
-		try {
-			func = get_instr_func(instruction);
-		} catch (Chip8Error& e) {
-			std::string msg = "Invalid instruction: instruction "
-				+ std::to_string(count);
-			throw std::logic_error(msg.c_str());
-		}
-		// Ensure functions with addresses are valid.
-		if (func == in_sys || func == in_jump || func == in_call) {
-			uint16_t addr = INSTR_ADDR;
-			if (addr < 0x200 || addr > 0xe8f)
-				std::out_of_range("Illegal VM memory operation.");
-		}
 		// Store the instruction in memory.
 		set_hword(0x200 + 2 * count, instruction);
 		count ++;
 	}
-
 	// Set VM data to defaults.
 	_crashed = false;
 	_programmed = true;
@@ -232,6 +218,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	uint8_t b = INSTR_B;
 	uint8_t c = INSTR_C;
 	uint8_t d = INSTR_D;
+	_InstrFunc func;
 	
 	try { // Use the instruction to determine which map to search.
 		if (a == 0x0) { // Leading half byte 0.
@@ -240,26 +227,34 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 			else throw std::out_of_range("");
 
 		} else if (a == 0xd) // DXYN
-			return in_draw;
+			func = in_draw;
 		
 		// Leading half bytes 1, 2, 3, 4, 6, 7, A, B, and C.
 		else if (a != 0x5 && a != 0x8 && a != 0x9 && a != 0xe && a != 0xf) {
 			// Leading half bytes 1, 2, A, and B.
 			if (a == 0x1 || a == 0x2 || a == 0xa || a == 0xb)
-				return _INSTRUCTIONS1.at(a);
-
+				func = _INSTRUCTIONS1.at(a);
 			else // Leading half bytes 3, 4, 6, 7, and C.
-				return _INSTRUCTIONS2.at(a);
+				func = _INSTRUCTIONS2.at(a);
 
-		} else if (a & 0xc == 0xc) // Leading half bytes E and F.
-			return _INSTRUCTIONS3.at(((uint16_t) a << 8) + (c << 4) + d);
+		} else if (a >= 0xe) // Leading half bytes E and F.
+			func = _INSTRUCTIONS4.at(((uint16_t) a << 8) + (c << 4) + d);
 
 		else // Leading half bytes 5, 8, and 9.
-			return _INSTRUCTIONS4.at((a << 4) + d);
+			func = _INSTRUCTIONS3.at((a << 4) + d);
 	
 	// Catch and rethrow invalid instruction accesses.
 	} catch (std::out_of_range& e) {
-		throw Chip8Error("Invalid instruction.");
+		std::stringstream msg;
+		msg << "Invalid instruction: "
+			<< std::uppercase << std::hex << instruction;
+		throw Chip8Error(msg.str());
+	}
+	// Ensure functions with addresses are valid.
+	if (func == in_sys || func == in_jump || func == in_call) {
+		uint16_t addr = INSTR_ADDR;
+		if (addr < 0x200 || addr > 0xe8f)
+			std::out_of_range("Illegal VM memory operation.");
 	}
 }
 
