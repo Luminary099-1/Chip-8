@@ -1,0 +1,6 @@
+[submodule "lib/wx"]
+	path = lib/wx
+	url = https://github.com/wxWidgets/wxWidgets
+[submodule "lib/catch2"]
+	path = lib/catch2
+	url = https://github.com/catchorg/Catch2
