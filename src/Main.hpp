@@ -25,7 +25,6 @@ public:
 };
 
 
-// https://wiki.wxwidgets.org/An_image_panel
 class Chip8ScreenPanel : public wxPanel {
 private:
 	uint8_t* _screen_buf;	// Space to store the image before passing to WX.

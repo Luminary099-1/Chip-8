@@ -1,7 +1,4 @@
-// Derived from the wxWidgets "Hello World" program.
-
 #include "Main.hpp"
-
 #include <wx/numdlg.h>
 #include <fstream>
 
@@ -186,7 +183,6 @@ void MainFrame::draw(uint64_t* screen) {
 }
 
 
-// https://onlinetonegenerator.com/
 void MainFrame::start_sound() {
 	_sound->Play(wxSOUND_ASYNC | wxSOUND_LOOP);
 }
