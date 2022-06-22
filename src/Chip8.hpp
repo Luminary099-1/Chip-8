@@ -46,28 +46,26 @@ public:
 	 * @brief Loads in the passed program and initializes the VM to run from its
 	 * start.
 	 * 
-	 * @param program A reference to an open filestream that contains the
-	 * program to be loaded. The contents of the steam are assumed to be in
-	 * "compiled" Chip-8 byte code, each instruction being two bytes with
-	 * nothing in between each. The stream must be open in binary mode.
+	 * @param program A string that contains the program to be loaded. The
+	 * contents of the steam are assumed to be in "compiled" Chip-8 byte code,
+	 * each instruction being two bytes with nothing in between each.
 	 */
-	void load_program(std::ifstream& program);
+	void load_program(std::string& program);
 
 	/**
 	 * @brief Obtain the current state of the VM.
 	 * 
-	 * @param destination A pointer to a space of size _state_size to which the
-	 * state will be written.
+	 * @return A string containing the state of the VM.
 	 */
-	void get_state(uint8_t* destination);
+	std::string get_state();
 
 	/**
 	 * @brief Loads in the passed state into the VM to be resumed.
 	 * 
-	 * @param source A pointer to a space of size _state_size from which the
-	 * state will be loaded.
+	 * @param source A reference to a string containing the VM state to be
+	 * loaded.
 	 */
-	void set_state(uint8_t* source);
+	void set_state(std::string& source);
 	
 	/**
 	 * @brief Start the VM's execution.
@@ -140,13 +138,6 @@ protected:
 	// Lookup table for instructions of the form kXkk.
 	static const std::map<uint16_t, _InstrFunc> _INSTRUCTIONS4;
 
-public:
-	// Stores the number of bytes in the state structure (a string).
-	static const size_t _state_size = sizeof(_gprf) + sizeof(_pc) + sizeof(_sp)
-		+ sizeof(_index) + sizeof(_delay) + sizeof(_sound) + sizeof(_mem)
-		+ sizeof(_screen) + 1 + sizeof(uint64_t);
-
-protected:
 	/**
 	 * @brief Returns the function that implements the passed Chip-8
 	 * instruction.

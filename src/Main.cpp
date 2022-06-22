@@ -1,6 +1,7 @@
 #include "Main.hpp"
 #include <wx/numdlg.h>
 #include <fstream>
+#include <sstream>
 
 
 // Maps wxWidget key input characters to numerical values for the Chip-8 VM.
@@ -236,10 +237,13 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	if (openDialog.ShowModal() == wxID_CANCEL) return;
 	// Grab the selected file path.
 	std::string path = openDialog.GetPath();
-	// Open the file and pass it to the VM.
+	// Open the file and read it into a string.
 	std::ifstream program_file(path, std::fstream::binary);
+	std::stringstream sstr;
+	sstr << program_file.rdbuf();
+	// Pass the string of the program to the VM.
 	try {
-		_vm->load_program(program_file);
+		_vm->load_program(sstr.str());
 		SetStatusText("Idle");
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
@@ -252,8 +256,7 @@ void MainFrame::on_save(wxCommandEvent& event) {
 	bool running = _vm->is_running();
 	if (running) _vm->stop();
 	// Grab the state.
-	uint8_t state[Chip8::_state_size];
-	_vm->get_state(state);
+	std::string state = _vm->get_state();
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
@@ -275,8 +278,6 @@ void MainFrame::on_save(wxCommandEvent& event) {
 void MainFrame::on_load(wxCommandEvent& event) {
 	// Pause the VM is it is running.
 	if (_vm->is_running()) _vm->stop();
-	// Scratch space for the state.
-	uint8_t state[Chip8::_state_size];
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Open Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
@@ -284,13 +285,13 @@ void MainFrame::on_load(wxCommandEvent& event) {
 	if (saveDalog.ShowModal() != wxID_CANCEL) {
 		// Grab the selected file path.
 		std::string path = saveDalog.GetPath();
-		std::ifstream state_file;
-		state_file.open(path, std::ifstream::in);
 		// Read the state from the file and close it.
-		state_file.read((char*) state, Chip8::_state_size);
+		std::ifstream state_file(path, std::fstream::binary);
+		std::stringstream sstr;
+		sstr << state_file.rdbuf();
 		state_file.close();
 		// Pass the state to the VM.
-		_vm->set_state(state);
+		_vm->set_state(sstr.str());
 	}
 }
 

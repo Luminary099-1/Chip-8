@@ -111,12 +111,11 @@ Chip8::~Chip8() {
 }
 
 
-// TODO: Change this to take the path instead of the extension. Consider doing the same for the state handlers.
-// TODO: Consider what happens if the load fails, i.e. is the state not otherwise changed?
-// TODO: Consider what happens if the loaded program is too large.
-void Chip8::load_program(std::ifstream& program) {
-	if (!program.is_open())
-		throw std::invalid_argument("Invalid program stream.");
+void Chip8::load_program(std::string& program) {
+	if (!program.size() > 0xc8f * 2)
+		throw std::invalid_argument("Program is too large.");
+	if (program.size() % 2 == 1)
+		throw std::invalid_argument("Program is an odd number of bytes.");
 	_running = false;
 	// Zero initialize memory and registers. Load the font.
 	memset(_mem, 0, sizeof(_mem));
@@ -131,10 +130,9 @@ void Chip8::load_program(std::ifstream& program) {
 	// Store the number of instructions read and make space for each one.
 	uint16_t count = 0;
 	uint16_t instruction = 0;
-	while (!program.eof()) {
-		// Read in each instruction and swap endianness.
-		program.read((char*) &instruction, 2);
-		instruction = (instruction >> 8) | (instruction << 8);
+	for (size_t i = 0; i < program.size(); i += 2) {
+		// Read in each instruction.
+		instruction = (program[i] << 8) | program[i + 1];
 		// Store the instruction in memory.
 		set_hword(0x200 + 2 * count, instruction);
 		count ++;
@@ -148,65 +146,53 @@ void Chip8::load_program(std::ifstream& program) {
 }
 
 
-void Chip8::get_state(uint8_t* destination) {
+std::string Chip8::get_state() {
 	if (_crashed) throw std::logic_error("VM has crashed.");
 	bool running = _running;
 	if (running) stop();
-	uint16_t* destination16 = (uint16_t*) destination; // TODO: Get rid of this nonsense.
-	uint64_t* destination64 = (uint64_t*) destination; // TODO: Get rid of this nonsense.
+	std::string out = "";
 	size_t offset = 0;
-	memcpy(destination + offset, _gprf, sizeof(_gprf));
-	offset += sizeof(_gprf);
-	destination16[offset] = _pc;
-	offset += sizeof(_pc);
-	destination16[offset] = _sp;
-	offset += sizeof(_sp);
-	destination16[offset] = _index;
-	offset += sizeof(_index);
-	destination[offset] = _delay;
-	offset += sizeof(_delay);
-	destination[offset] = _sound;
-	offset += sizeof(_sound);
-	memcpy(destination + offset, _mem, sizeof(_mem));
-	offset += sizeof(_mem);
-	memcpy(destination + offset, _screen, sizeof(_screen));
-	offset += sizeof(_screen);
-	uint8_t flags = 0;
-	if (_sounding) destination[offset] = 0x01;
-	else destination[offset] = 0x00;
-	offset += 1;
-	destination64[offset] = _elapsed_second.count();
+	out.append((char*) _gprf, sizeof(_gprf));
+	out.append((char*) &_pc, sizeof(_pc));
+	out.append((char*) &_sp, sizeof(_sp));
+	out.append((char*) &_index, sizeof(_index));
+	out.append((char*) &_delay, sizeof(_delay));
+	out.append((char*) &_sound, sizeof(_sound));
+	out.append((char*) _mem, sizeof(_mem));
+	out.append((char*) _screen, sizeof(_screen));
+	out.append((char*) _sounding, sizeof(_sounding));
+	uint64_t count = _elapsed_second.count();
+	out.append((char*) &count, sizeof(count));
 	if (running) start();
+	return out;
 }
 
 
-void Chip8::set_state(uint8_t* source) {
-	_running = false;
+void Chip8::set_state(std::string& source) {
 	stop();
-	uint16_t* source16 = (uint16_t*) source; // TODO: Get rid of this nonsense.
-	uint64_t* source64 = (uint64_t*) source; // TODO: Get rid of this nonsense.
 	size_t offset = 0;
-	memcpy(_gprf, source + offset, sizeof(_gprf));
+	const char* src = source.c_str();
+	memcpy(_gprf, src + offset, sizeof(_gprf));
 	offset += sizeof(_gprf);
-	_pc = source16[offset];
+	memcpy(&_pc, src + offset, sizeof(_pc));	
 	offset += sizeof(_pc);
-	_sp = source16[offset];
+	memcpy(&_sp, src + offset, sizeof(_sp));
 	offset += sizeof(_sp);
-	_index = source16[offset];
+	memcpy(&_index, src + offset, sizeof(_index));
 	offset += sizeof(_index);
-	_delay = source[offset];
+	memcpy(&_delay, src + offset, sizeof(_delay));
 	offset += sizeof(_delay);
-	_sound = source[offset];
+	memcpy(&_sound, src + offset, sizeof(_sound));
 	offset += sizeof(_sound);
-	memcpy(_mem, source + offset, sizeof(_mem));
+	memcpy(_mem, src + offset, sizeof(_mem));
 	offset += sizeof(_mem);
-	memcpy(_screen, source + offset, sizeof(_screen));
+	memcpy(_screen, src + offset, sizeof(_screen));
 	offset += sizeof(_screen);
-	uint8_t flags = 0;
-	if (source[offset] == 0x01) _sounding = true;
-	else _sounding = false;
-	offset += 1;
-	_elapsed_second = _TimeType(source64[offset]);
+	memcpy(&_sounding, src + offset, sizeof(_sounding));
+	offset += sizeof(_sounding);
+	uint64_t count;
+	memcpy(&count, src + offset, sizeof(count));
+	_elapsed_second = _TimeType(count);
 	_programmed = true;
 	_crashed = false;
 }
