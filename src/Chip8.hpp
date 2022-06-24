@@ -12,11 +12,21 @@
 
 namespace chro = std::chrono;
 
+
+/**
+ * @brief Standard exception class for errors pertaining to emulation.
+ */
+struct Chip8Error : public std::runtime_error {
+	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
+
+
 /**
  * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
  * Chip-8 language.
  */
 class Chip8 {
+	friend class TestChip8;
 public:
 	uint16_t _freq; // Instruction cycle frequency. Defaults to 500Hz.
 
@@ -181,7 +191,7 @@ protected:
 	 */
 	void set_hword(uint16_t addr, uint16_t hword);
 
-
+public:
 	/* Instruction Implementing Methods ========================================
 	 * Each instruction description below begins with its CHIP-8 opcode. Legend:
 	 *		N = A hexadecimal digit.

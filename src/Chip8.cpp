@@ -14,14 +14,6 @@
 #define INSTR_IMM (instruction & 0x00ff)
 
 
-/**
- * @brief Standard exception class for errors pertaining to emulation.
- */
-struct Chip8Error : public std::runtime_error {
-	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
-};
-
-
 const uint16_t Chip8::FONT_OFF = 24;
 
 
