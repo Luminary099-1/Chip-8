@@ -41,7 +41,7 @@ public Chip8Sound, public Chip8Message {
 
 
 /**
- * @brief Extension of the Chip-8 VM to faciitate testing.
+ * @brief Extension of the Chip-8 VM to facilitate testing.
  */
 struct TestChip8 : public Chip8 {
 	TestChip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd,

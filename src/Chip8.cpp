@@ -199,28 +199,36 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	_InstrFunc func;
 	
 	try { // Use the instruction to determine which map to search.
-		if (a == 0x0) { // Leading half byte 0.
-			if (d == 0x0) func = in_clr;
-			else if (d == 0xe) func = in_rts;
-			else throw std::out_of_range("");
+		switch (a) {
+			case 0x0: // Leading half byte 0.
+				if (d == 0x0) func = in_clr;
+				else if (d == 0xe) func = in_rts;
+				else throw std::out_of_range("");
+				break;
 
-		} else if (a == 0xd) // DXYN
-			func = in_draw;
-		
-		// Leading half bytes 1, 2, 3, 4, 6, 7, A, B, and C.
-		else if (a != 0x5 && a != 0x8 && a != 0x9 && a != 0xe && a != 0xf) {
+			case 0xD: // DXYN
+				func = in_draw;
+				break;
+
 			// Leading half bytes 1, 2, A, and B.
-			if (a == 0x1 || a == 0x2 || a == 0xa || a == 0xb)
+			case 0X1:	case 0x2:	case 0xA:	case 0xB:
 				func = _INSTRUCTIONS1.at(a);
-			else // Leading half bytes 3, 4, 6, 7, and C.
+				break;
+
+			// Leading half bytes 3, 4, 6, 7, and C.
+			case 0x3:	case 0x4:	case 0x6:	case 0x7:	case 0xC:
 				func = _INSTRUCTIONS2.at(a);
+				break;
 
-		} else if (a >= 0xe) // Leading half bytes E and F.
-			func = _INSTRUCTIONS4.at(((uint16_t) a << 8) + (c << 4) + d);
+			case 0xE:	case 0xF: // Leading half bytes E and F.
+				func = _INSTRUCTIONS4.at(((uint16_t) a << 8) + (c << 4) + d);
+				break;
+				
+			default: // Leading half bytes 5, 8, and 9.
+				func = _INSTRUCTIONS3.at((a << 4) + d);
+				break;
+		}
 
-		else // Leading half bytes 5, 8, and 9.
-			func = _INSTRUCTIONS3.at((a << 4) + d);
-	
 	// Catch and rethrow invalid instruction accesses.
 	} catch (std::out_of_range& e) {
 		std::stringstream msg;
