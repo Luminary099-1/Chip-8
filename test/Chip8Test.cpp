@@ -1,71 +1,12 @@
+#include "TestChip8.hpp"
+#include "TestChip8Observer.hpp"
 #include "../src/Chip8.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 
-/**
- * @brief 
- */
-struct Chip8TestListener : public Chip8Keyboard, public Chip8Display,
-public Chip8Sound, public Chip8Message {
-	std::array<bool, 16> _key_states;
-	std::vector<uint64_t[32]> _screens;
-	bool _sounding = false;
-	std::vector<std::string> _crashes;
-
-	bool test_key(uint8_t key) override {
-		return _key_states.at(key);
-	}
-
-	uint8_t wait_key() override {
-		return 0; // TODO: Decide how to do this.
-	}
-
-	void draw(uint64_t* screen) override {
-		_screens.emplace_back();
-		for (size_t i = 0; i < 32; i ++)
-			_screens[_screens.size() - 1][i] = screen[i];
-	}
-
-	void start_sound() override {
-		_sounding = true;
-	}
-
-	void stop_sound() override {
-		_sounding = false;
-	}
-
-	void crashed(const char* what) override {
-		_crashes.push_back(what);
-	}
-};
-
-
-/**
- * @brief Extension of the Chip-8 VM to facilitate testing.
- */
-struct TestChip8 : public Chip8 {
-	TestChip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd,
-		Chip8Message* msg) : Chip8(key, disp, snd, msg) {};
-	uint16_t get_pc() { return _pc; }
-	uint16_t get_sp() { return _sp; }
-	uint16_t get_index() { return _index; }
-	uint8_t get_delay() { return _delay; }
-	uint8_t get_sound() { return _sound; }
-	uint8_t* get_mem() { return _mem; }
-	uint64_t* get_screen() { return _screen; }
-	bool get_programmed() { return _programmed; }
-	bool get_key_wait() { return _key_wait; }
-	bool get_sounding() { return _sounding; }
-	bool get_running() { return _running; }
-	bool get_stopped() { return _stopped; }
-	bool get_crashed() { return _crashed; }
-	bool get_terminating() { return _terminating; }
-	static _InstrFunc get_instr_func(uint16_t instruction);
-};
-
-
 TEST_CASE("Chip-8 VM Utilities") {
-	Chip8TestListener listener;
+	TestChip8Observer listener;
 	TestChip8 vm(&listener, &listener, &listener, &listener);
 
 	SECTION("load_program") {
