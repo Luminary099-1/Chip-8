@@ -12,25 +12,28 @@ TEST_CASE("Chip-8 VM Utilities") {
 	SECTION("load_program") {
 		SECTION("load_program: Full size.") {
 			std::string program1;
-			for (uint16_t i = 0; i < 0xc8f; i ++) {
+			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size; i ++) {
 				program1 += (char) i >> 8;
 				program1 += (char) i;
 			}
 			vm.load_program(program1);
-			std::string loaded1 = std::string((char*) vm.get_mem(), 4096);
-			loaded1 = loaded1.substr(0x200, 0xc8f);
+			std::string loaded1
+				= std::string((char*) vm.get_mem(), Chip8::_Mem_Size);
+			loaded1 = loaded1.substr(Chip8::_Prog_Start, Chip8::_Max_Prog_Size);
 			REQUIRE(loaded1.compare(program1) == 0);
 		}
 
 		SECTION("load_program: Too large.") {
 			std::string program;
-			for (uint16_t i = 0; i < 0xc8f * 2 + 10; i ++) program += 5;
+			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size * 2 + 10; i ++)
+				program += 5;
 			REQUIRE_THROWS_AS(vm.load_program(program), std::invalid_argument);
 		}
 
 		SECTION("load_program: Odd program size.") {
 			std::string program;
-			for (uint16_t i = 0; i < 0xc8f * 2 + 9; i ++) program += 5;
+			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size * 2 + 9; i ++)
+				program += 5;
 			REQUIRE_THROWS_AS(vm.load_program(program), std::invalid_argument);
 		}
 	}
