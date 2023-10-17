@@ -1,4 +1,4 @@
-// Derived from the wxWidgets "Hello World" program.
+#pragma once
 
 #include "Chip8.hpp"
 

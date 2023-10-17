@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Chip8Observers.hpp"
 
 #include <array>

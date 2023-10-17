@@ -1,5 +1,17 @@
+#pragma once
+
 #include "../src/Chip8.hpp"
+#include "../src/Chip8Observers.hpp"
 #include <vector>
+
+
+/**
+ * @brief A struct to contain the array for TestChip8Observer::_screens and
+ * provide a valid initializer.
+ */
+struct ScreenBox {
+	uint64_t _screen[32] = {};
+};
 
 
 /**
@@ -10,7 +22,7 @@ public Chip8Sound, public Chip8Message {
 	// Stores the states of all CHIP-8 keyboard keys.
 	std::array<bool, 16> _key_states;
 	// Stores a history of each frame produced by the emulated display.
-	std::vector<uint64_t[32]> _screens;
+	std::vector<ScreenBox> _screens;
 	// Indicates whether the emulator is outputting sound.
 	bool _sounding = false;
 	// Stores emulator crash messages.

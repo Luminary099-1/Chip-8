@@ -72,5 +72,5 @@ bool TestChip8::get_terminating() {
 
 
 TestChip8::_InstrFunc TestChip8::get_instr_func(uint16_t instruction) {
-
+	return Chip8::get_instr_func(instruction);
 }

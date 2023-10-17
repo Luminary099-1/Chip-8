@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../src/Chip8.hpp"
 
 
@@ -109,7 +111,8 @@ struct TestChip8 : public Chip8 {
 
 	/**
 	 * @brief Returns the function that executes the specified CHIP-8
-	 * instruction.
+	 * instruction. The call is passed to the base class, exposing it for
+	 * testing.
 	 * 
 	 * @param instruction The CHIP-8 instruction to decode.
 	 * @return _InstrFunc 

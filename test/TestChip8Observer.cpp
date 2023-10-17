@@ -1,6 +1,8 @@
 #include "TestChip8Observer.hpp"
 
 
+
+
 bool TestChip8Observer::test_key(uint8_t key) {
 	return _key_states.at(key);
 }
@@ -14,7 +16,7 @@ uint8_t TestChip8Observer::wait_key() {
 void TestChip8Observer::draw(uint64_t* screen) {
 	_screens.emplace_back();
 	for (size_t i = 0; i < 32; i ++)
-		_screens[_screens.size() - 1][i] = screen[i];
+		_screens[_screens.size() - 1]._screen[i] = screen[i];
 }
 
 
