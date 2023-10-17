@@ -14,21 +14,6 @@
 #define INSTR_IMM (instruction & 0x00ff)
 
 
-const uint16_t Chip8::FONT_OFF = 24;
-
-
-const uint8_t Chip8::FONT[80] = {
-	0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
-	0xf0, 0x10, 0xf0, 0x80, 0xf0,    0xf0, 0x10, 0xf0, 0x10, 0x10,  // 2, 3
-	0x90, 0x90, 0xf0, 0x10, 0x10,    0xf0, 0x80, 0xf0, 0x10, 0xf0,  // 4, 5
-	0xf0, 0x80, 0xf0, 0x90, 0xf0,    0xf0, 0x10, 0x20, 0x40, 0x40,  // 6, 7
-	0xf0, 0x90, 0xf0, 0x90, 0xf0,    0xf0, 0x90, 0xf0, 0x10, 0xf0,  // 8, 9
-	0xf0, 0x90, 0xf0, 0x90, 0x90,    0xe0, 0x90, 0xe0, 0x90, 0xe0,  // A, B
-	0xf0, 0x80, 0x80, 0x80, 0xf0,    0xe0, 0x90, 0x90, 0x90, 0xe0,  // C, D
-	0xf0, 0x80, 0xf0, 0x80, 0xf0,    0xf0, 0x80, 0xf0, 0x80, 0x80,  // E, F
-};
-
-
 // Instructions with leading half bytes of 1, 2, A, and B.
 const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 	{0x1, in_jump},
@@ -104,7 +89,7 @@ Chip8::~Chip8() {
 
 
 void Chip8::load_program(std::string& program) {
-	if (!program.size() > 0xc8f * 2)
+	if (!program.size() > _Max_Prog_Size * 2)
 		throw std::invalid_argument("Program is too large.");
 	if (program.size() % 2 == 1)
 		throw std::invalid_argument("Program is an odd number of bytes.");
@@ -115,7 +100,7 @@ void Chip8::load_program(std::string& program) {
 	memcpy(_mem + FONT_OFF, FONT, sizeof(FONT));
 	memset(_gprf, 0, sizeof(_gprf));
 	_sp = 0;
-	_pc = 0x200;
+	_pc = _Prog_Start;
 	_index = 0;
 	_delay = 0;
 	_sound = 0;
@@ -126,7 +111,7 @@ void Chip8::load_program(std::string& program) {
 		// Read in each instruction.
 		instruction = (program[i] << 8) | program[i + 1];
 		// Store the instruction in memory.
-		set_hword(0x200 + 2 * count, instruction);
+		set_hword(_Prog_Start + 2 * count, instruction);
 		count ++;
 	}
 	// Set VM data to defaults.
@@ -239,7 +224,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	// Ensure functions with addresses are valid.
 	if (func == in_sys || func == in_jump || func == in_call) {
 		uint16_t addr = INSTR_ADDR;
-		if (addr < 0x200 || addr > 0xe8f)
+		if (addr < _Prog_Start || addr > _Prog_End)
 			std::out_of_range("Illegal VM memory operation.");
 	}
 	return func;
@@ -471,7 +456,7 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instruction) { // ANNN
 
 void Chip8::in_jumpi(Chip8& vm, uint16_t instruction) { // BNNN
 	uint16_t addr = vm._gprf[0] + INSTR_ADDR;
-	if (addr < 0x200 || addr > 0xe8f)
+	if (addr < _Prog_Start || _Prog_End > _Prog_End)
 		Chip8Error("Illegal VM memory operation.");
 	vm._pc = addr;
 }
@@ -490,7 +475,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 	// Iterate over each line of the sprite.
 	for (uint8_t y = 0; y < std::min(INSTR_D, 31); y ++) {
 		// Grab the line from the sprite and shift it to its x position.
-		if (vm._index + y < 0x200 || vm._index + y > 0xe8f)
+		if (vm._index + y < _Prog_Start || vm._index + y > _Prog_End)
 			Chip8Error("Illegal VM memory operation.");
 		uint64_t spr_line = (uint64_t) vm._mem[vm._index + y] << (xpos - 24);
 		// Determine the new screen line.
@@ -565,7 +550,7 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 		if (scratch & 0xf0000 > 0x40000) scratch += 0x30000;
 	}
 	// Ensure the destination memory is valid.
-	if (vm._index < 0x200 || vm._index + 2 > 0xe8f)
+	if (vm._index < _Prog_Start || vm._index + 2 > _Prog_End)
 		Chip8Error("Illegal VM memory operation.");
 	// Store each digit in memory.
 	vm._mem[vm._index] = (scratch & 0xf0000) >> 0xf;
@@ -576,7 +561,7 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 
 void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
-		if (vm._index + i < 0x200 || vm._index > 0xe8f)
+		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
 			throw Chip8Error("Illegal VM memory operation.");
 		vm._mem[vm._index + i] = vm._gprf[i];
 	}
@@ -585,7 +570,7 @@ void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 
 void Chip8::in_read(Chip8& vm, uint16_t instruction) { // FX65
 	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
-		if (vm._index + i < 0x200 || vm._index > 0xe8f)
+		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
 			throw Chip8Error("Illegal VM memory operation.");
 		vm._gprf[i] = vm._mem[vm._index + i];
 	}

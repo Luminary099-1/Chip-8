@@ -30,7 +30,16 @@ struct Chip8Error : public std::runtime_error {
 class Chip8 {
 	friend class TestChip8;
 public:
-	uint16_t _freq; // Instruction cycle frequency. Defaults to 500Hz.
+	// Instruction cycle frequency. Defaults to 500Hz.
+	uint16_t _freq;
+	// The size of the Chip-8 VM's memory in bytes.
+	static constexpr uint16_t _Mem_Size = 4096;
+	// First address of the program space in Chip-8 memory.
+	static constexpr uint16_t _Prog_Start = 0x200;
+	// Last address of the program space in Chip-8 memory.
+	static constexpr uint16_t _Prog_End = 0xe8f;
+	// Largest legal program size.
+	static constexpr uint16_t _Max_Prog_Size = _Prog_End - _Prog_Start;
 
 	/**
 	 * @brief Construct a new Chip-8 VM. A program will have to be loaded or a
@@ -110,19 +119,20 @@ protected:
 	// Type of std::chrono::duration for keeping the timers.
 	typedef chro::duration<uint64_t, std::ratio<1, 1000>> _TimeType;
 
-	uint8_t			_gprf[16];		// General purpose register file.
-	uint16_t		_pc;			// Program counter.
-	uint16_t		_sp;			// Stack pointer.
-	uint16_t		_index;			// Memory index register.
-	uint8_t			_delay;			// Delay timer.
-	uint8_t			_sound;			// Sound timer.
-	uint8_t			_mem[4096];		// VM memory.
-	uint64_t		_screen[32];	// Screen memory (1 dword = 1 row).
+	uint8_t			_gprf[16];			// General purpose register file.
+	uint16_t		_pc;				// Program counter.
+	uint16_t		_sp;				// Stack pointer.
+	uint16_t		_index;				// Memory index register.
+	uint8_t			_delay;				// Delay timer.
+	uint8_t			_sound;				// Sound timer.
+	uint8_t			_mem[_Mem_Size];	// VM memory.
+	uint64_t		_screen[32];		// Screen memory (1 dword = 1 row).
 
-	Chip8Keyboard*	_keyboard;		// Delegate to handle input (keyboard).
-	Chip8Display*	_display;		// Delegate to handle output (screen).
-	Chip8Sound*		_speaker;		// Delegate to handle output (sound).
-	Chip8Message*	_error;			// Delegate to receive error notifications.
+	Chip8Keyboard*	_keyboard;	// Delegate to handle input (keyboard).
+	Chip8Display*	_display;	// Delegate to handle output (screen).
+	Chip8Sound*		_speaker;	// Delegate to handle output (sound).
+	Chip8Message*	_error;		// Delegate to receive error notifications.
+	
 	bool			_programmed;	// True if the machine has a program.
 	bool			_key_wait;		// True if in_keyd (FX0A) is "blocking".
 	bool			_sounding;		// True if sound is playing.
@@ -132,15 +142,32 @@ protected:
 	bool			_terminating;	// True if the runner is to end execution.
 	std::thread		_runner;		// Thread to handle operation of the VM.
 	std::mutex		_lock_mtx;		// Mutex for the runner lock.
+
 	// Unique lock for the runner lock.
 	std::unique_lock<std::mutex> _u_lock;
-	std::condition_variable	_lock;	// Blocks the runner when the VM is stopped.
-	chro::steady_clock _clock;		// The clock used to maintain the timers.
+	// Blocks the runner when the VM is stopped.
+	std::condition_variable	_lock;
+	// The clock used to maintain the timers.
+	chro::steady_clock _clock;
 	// The _clock time of the previous cycle.
 	chro::time_point<chro::steady_clock, _TimeType> _prev_time;
-	_TimeType		_elapsed_second;	// The time since the last timer pulse.
-	static const uint16_t FONT_OFF;		// VM font memory offset.
-	static const uint8_t FONT[80];		// VM font data.
+	// The time since the last timer pulse.
+	_TimeType _elapsed_second;
+	
+	// VM font memory offset.
+	static constexpr uint16_t FONT_OFF {24};
+	// VM font data.
+	static constexpr uint8_t FONT[80] {
+		0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
+		0xf0, 0x10, 0xf0, 0x80, 0xf0,    0xf0, 0x10, 0xf0, 0x10, 0x10,  // 2, 3
+		0x90, 0x90, 0xf0, 0x10, 0x10,    0xf0, 0x80, 0xf0, 0x10, 0xf0,  // 4, 5
+		0xf0, 0x80, 0xf0, 0x90, 0xf0,    0xf0, 0x10, 0x20, 0x40, 0x40,  // 6, 7
+		0xf0, 0x90, 0xf0, 0x90, 0xf0,    0xf0, 0x90, 0xf0, 0x10, 0xf0,  // 8, 9
+		0xf0, 0x90, 0xf0, 0x90, 0x90,    0xe0, 0x90, 0xe0, 0x90, 0xe0,  // A, B
+		0xf0, 0x80, 0x80, 0x80, 0xf0,    0xe0, 0x90, 0x90, 0x90, 0xe0,  // C, D
+		0xf0, 0x80, 0xf0, 0x80, 0xf0,    0xf0, 0x80, 0xf0, 0x80, 0x80,  // E, F
+	};
+
 	// Lookup table for instructions of the form kNNN.
 	static const std::map<uint8_t, _InstrFunc> _INSTRUCTIONS1;
 	// Lookup table for instructions of the form kXNN.
