@@ -28,7 +28,7 @@ struct Chip8Error : public std::runtime_error {
  * Chip-8 language.
  */
 class Chip8 {
-	friend class TestChip8;
+	friend TestChip8;
 public:
 	// Instruction cycle frequency. Defaults to 500Hz.
 	uint16_t _freq;
