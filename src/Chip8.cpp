@@ -89,11 +89,13 @@ Chip8::~Chip8() {
 
 
 void Chip8::load_program(std::string& program) {
-	if (!program.size() > _Max_Prog_Size * 2)
+	// Verify the program isn't odd or too large.
+	if (program.size() > _Max_Prog_Size)
 		throw std::invalid_argument("Program is too large.");
 	if (program.size() % 2 == 1)
 		throw std::invalid_argument("Program is an odd number of bytes.");
 	_running = false;
+
 	// Zero initialize memory and registers. Load the font.
 	memset(_mem, 0, sizeof(_mem));
 	memset(_screen, 0, sizeof(_screen));
@@ -104,16 +106,10 @@ void Chip8::load_program(std::string& program) {
 	_index = 0;
 	_delay = 0;
 	_sound = 0;
-	// Store the number of instructions read and make space for each one.
-	uint16_t count = 0;
-	uint16_t instruction = 0;
-	for (size_t i = 0; i < program.size(); i += 2) {
-		// Read in each instruction.
-		instruction = (program[i] << 8) | program[i + 1];
-		// Store the instruction in memory.
-		set_hword(_Prog_Start + 2 * count, instruction);
-		count ++;
-	}
+	
+	// Copy the program into memory.
+	memcpy(static_cast<void*>(program.data()), _mem, program.length());
+
 	// Set VM data to defaults.
 	_crashed = false;
 	_programmed = true;

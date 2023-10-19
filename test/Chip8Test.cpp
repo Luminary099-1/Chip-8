@@ -2,38 +2,33 @@
 #include "TestChip8Observer.hpp"
 #include "../src/Chip8.hpp"
 
+#include <sstream>
 #include <catch2/catch_test_macros.hpp>
 
 
 TEST_CASE("Chip-8 VM Utilities") {
 	TestChip8Observer listener;
-	TestChip8 vm(&listener, &listener, &listener, &listener);
+	TestChip8 vm (&listener, &listener, &listener, &listener);
 
 	SECTION("load_program") {
 		SECTION("load_program: Full size.") {
-			std::string program1;
-			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size; i ++) {
-				program1 += (char) i >> 8;
-				program1 += (char) i;
-			}
-			vm.load_program(program1);
-			std::string loaded1
-				= std::string((char*) vm.get_mem(), Chip8::_Mem_Size);
-			loaded1 = loaded1.substr(Chip8::_Prog_Start, Chip8::_Max_Prog_Size);
-			REQUIRE(loaded1.compare(program1) == 0);
+			std::stringstream prog_acc;
+			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size; i ++)
+				prog_acc << static_cast<char>(i % 256);
+			std::string program {prog_acc.str()};
+			vm.load_program(program);
+			std::string loaded ((char*) vm.get_mem(), Chip8::_Mem_Size);
+			loaded = loaded.substr(Chip8::_Prog_Start, Chip8::_Max_Prog_Size);
+			REQUIRE(loaded.compare(program) == 0);
 		}
 
 		SECTION("load_program: Too large.") {
-			std::string program;
-			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size * 2 + 10; i ++)
-				program += 5;
+			std::string program (Chip8::_Max_Prog_Size, ' ');
 			REQUIRE_THROWS_AS(vm.load_program(program), std::invalid_argument);
 		}
 
 		SECTION("load_program: Odd program size.") {
-			std::string program;
-			for (uint16_t i = 0; i < Chip8::_Max_Prog_Size * 2 + 9; i ++)
-				program += 5;
+			std::string program (Chip8::_Max_Prog_Size, ' ');
 			REQUIRE_THROWS_AS(vm.load_program(program), std::invalid_argument);
 		}
 	}
