@@ -70,21 +70,6 @@ Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
 	_freq = 500;
 	_programmed = false;
-	_running = false;
-	_stopped = false;
-	_terminating = false;
-	_runner = std::thread(&Chip8::run, this);
-	// _lock = std::condition_variable::condition_variable();
-	_u_lock = std::unique_lock<std::mutex>(_lock_mtx);
-	_clock = std::chrono::steady_clock();
-}
-
-
-Chip8::~Chip8() {
-	_running = false;
-	_terminating = true;
-	_lock.notify_one();
-	_runner.join();
 }
 
 
@@ -94,7 +79,6 @@ void Chip8::load_program(std::string& program) {
 		throw std::invalid_argument("Program is too large.");
 	if (program.size() % 2 == 1)
 		throw std::invalid_argument("Program is an odd number of bytes.");
-	_running = false;
 
 	// Zero initialize memory and registers. Load the font.
 	memset(_mem, 0, sizeof(_mem));
@@ -108,21 +92,18 @@ void Chip8::load_program(std::string& program) {
 	_sound = 0;
 	
 	// Copy the program into memory.
-	memcpy(static_cast<void*>(program.data()), _mem, program.length());
+	memcpy((void*) program.data(), _mem, program.length());
 
 	// Set VM data to defaults.
 	_crashed = false;
 	_programmed = true;
 	_key_wait = false;
 	_sounding = false;
-	_elapsed_second = _TimeType(0);
 }
 
 
 std::string Chip8::get_state() {
 	if (_crashed) throw std::logic_error("VM has crashed.");
-	bool running = _running;
-	if (running) stop();
 	std::string out = "";
 	size_t offset = 0;
 	out.append((char*) _gprf, sizeof(_gprf));
@@ -134,15 +115,11 @@ std::string Chip8::get_state() {
 	out.append((char*) _mem, sizeof(_mem));
 	out.append((char*) _screen, sizeof(_screen));
 	out.append((char*) _sounding, sizeof(_sounding));
-	uint64_t count = _elapsed_second.count();
-	out.append((char*) &count, sizeof(count));
-	if (running) start();
 	return out;
 }
 
 
 void Chip8::set_state(std::string& source) {
-	stop();
 	size_t offset = 0;
 	const char* src = source.c_str();
 	memcpy(_gprf, src + offset, sizeof(_gprf));
@@ -165,7 +142,6 @@ void Chip8::set_state(std::string& source) {
 	offset += sizeof(_sounding);
 	uint64_t count;
 	memcpy(&count, src + offset, sizeof(count));
-	_elapsed_second = _TimeType(count);
 	_programmed = true;
 	_crashed = false;
 }
@@ -227,39 +203,28 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
-void Chip8::run(Chip8* vm) { // TODO: Reconsider the separation of the runner thread.
-	while (true) { // Attempt to execute instructions continuously.
-		if (vm->_running) { // If the VM should run:
-			// Sleep to attain the desired instruction cycle frequency.
-			std::this_thread::sleep_for(chro::milliseconds(1 / vm->_freq));
-			// Run the cycle if in_keyd() is not waiting for a keypress.
-			try {
-				if (!vm->_key_wait) vm->execute_cycle();
-			} catch (Chip8Error& e) {
-				vm->_crashed = true;
-				vm->_running = false;
-			}
-		} else { // If the VM should not run:
-			vm->_stopped = true; // Indicate the VM state will not change.
-			vm->_lock.wait(vm->_u_lock); // Lock the condition variable.
-			if (vm->_terminating) break; // If the instance is being destroyed.
-			vm->_stopped = false; // Indicate the CM state might change.
-		}
-	}
+void Chip8::run(_TimeType elapsed_time) {
+	_TimeType cycle_period {1000U / _freq};
+	_time_budget += elapsed_time;
+	_TimeType cycles {_time_budget / cycle_period.count()};
+	for (int64_t i {0}; i < cycles.count(); ++i)
+		execute_cycle(cycle_period);
+	_time_budget -= cycles * cycle_period.count();
 }
 
 
-void Chip8::execute_cycle() {
+void Chip8::execute_cycle(_TimeType cycle_time) {
+	static _TimeType thousand {1000U};
+
 	// Grab the next instruction.
 	uint16_t instruction = get_hword(_pc);
 	// Get the instruction implementing function.
 	_InstrFunc instr_func = get_instr_func(instruction);
 	// Keep track of elapsed time to update the timers.
-	_elapsed_second += chro::time_point_cast<_TimeType>(_clock.now())
-		- _prev_time;
+	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
-	if (_elapsed_second.count() >= 1000) {
-		_elapsed_second -= _TimeType(1000);
+	if (_timer >= thousand) {
+		_timer -= thousand;
 		if (_delay != 0) _delay -= 1;
 		if (_sound != 0) _sound -= 1;
 	}
@@ -279,33 +244,13 @@ void Chip8::execute_cycle() {
 }
 
 
-void Chip8::start() {
-	// Ensure the VM can be started.
-	if (!_programmed) throw std::logic_error("No program loaded.");
-	if (_running || !_stopped) throw std::logic_error("VM is already running.");
-	if (_crashed) throw std::logic_error("VM has crashed.");
-	// Enable the runner to continue.
-	_running = true;
-	// Update the previous clock time.
-	_prev_time = chro::time_point_cast<_TimeType>(_clock.now());
-	// Tell the runner to continue.
-	_lock.notify_one();
+uint16_t Chip8::frequency() {
+	return _freq;
 }
 
 
-void Chip8::stop() {
-	// Ensure the VM can be stopped.
-	if (!_running || _stopped)
-		throw std::logic_error("The VM is already not running.");
-	// Signal to the runner to wait.
-	_running = false;
-	// Wait until the runner finishes its cycle.
-	while(!_stopped);
-}
-
-
-bool Chip8::is_running() {
-	return _running;
+void Chip8::frequency(uint16_t value) {
+	_freq = value;
 }
 
 
@@ -501,16 +446,17 @@ void Chip8::in_moved(Chip8& vm, uint16_t instruction) { // FX07
 
 
 void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
-	uint8_t key;
-	// Block cycles until they key press is made.
-	vm._key_wait = true;
-	// Wait for a keypress that takes place when the VM is running.
-	do key = vm._keyboard->wait_key();
-	while (!vm._running);
-	// Store the key value.
-	vm._gprf[INSTR_B] = key;
-	// Stop skipping instruction cycles.
-	vm._key_wait = false;
+	// FIXME: Reimplement this to function with the new regine sans thread.
+	// uint8_t key;
+	// // Block cycles until they key press is made.
+	// vm._key_wait = true;
+	// // Wait for a keypress that takes place when the VM is running.
+	// do key = vm._keyboard->wait_key();
+	// // while (!vm._running);
+	// // Store the key value.
+	// vm._gprf[INSTR_B] = key;
+	// // Stop skipping instruction cycles.
+	// vm._key_wait = false;
 }
 
 

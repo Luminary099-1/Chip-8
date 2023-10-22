@@ -51,23 +51,8 @@ bool TestChip8::get_sounding() {
 }
 
 
-bool TestChip8::get_running() {
-	return _running;
-}
-
-
-bool TestChip8::get_stopped() {
-	return _stopped;
-}
-
-
 bool TestChip8::get_crashed() {
 	return _crashed;
-}
-
-
-bool TestChip8::get_terminating() {
-	return _terminating;
 }
 
 
