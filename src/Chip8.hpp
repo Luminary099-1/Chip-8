@@ -107,23 +107,22 @@ public:
 	bool is_crashed();
 
 	/**
-	 * @brief 
+	 * @brief Run the emulator for the specified duration.
 	 * 
-	 * @param elapsed_time 
+	 * @param elapsed_time The number of miliseconds to run the emulation
+	 * forward.
 	 */
 	void run(_TimeType elapsed_time);
 
 	/**
-	 * @brief 
-	 * 
-	 * @return uint16_t 
+	 * @return The current emulation instruction cycle frequency in Hz. 
 	 */
 	uint16_t frequency();
 
 	/**
-	 * @brief 
+	 * @brief Set the emulation instruction cycle frequency.
 	 * 
-	 * @param value 
+	 * @param value The new frequency in Hz.
 	 */
 	void frequency(uint16_t value);
 

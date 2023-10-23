@@ -179,7 +179,6 @@ void Chip8::run(_TimeType elapsed_time) {
 
 void Chip8::execute_cycle(_TimeType cycle_time) {
 	static _TimeType timer_period {1000U / 60U};
-
 	// Grab the next instruction.
 	uint16_t instruction = get_hword(_pc);
 	// Get the instruction implementing function.
