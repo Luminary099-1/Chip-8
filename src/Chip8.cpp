@@ -77,8 +77,6 @@ void Chip8::load_program(std::string& program) {
 	// Verify the program isn't odd or too large.
 	if (program.size() > _Max_Prog_Size)
 		throw std::invalid_argument("Program is too large.");
-	if (program.size() % 2 == 1)
-		throw std::invalid_argument("Program is an odd number of bytes.");
 
 	// Zero initialize memory and registers. Load the font.
 	memset(_mem, 0, sizeof(_mem));
@@ -92,7 +90,7 @@ void Chip8::load_program(std::string& program) {
 	_sound = 0;
 	
 	// Copy the program into memory.
-	memcpy((void*) program.data(), _mem, program.length());
+	memcpy(_mem + _Prog_Start, (void*) program.data(), program.length());
 
 	// Set VM data to defaults.
 	_crashed = false;
@@ -158,8 +156,8 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	try { // Use the instruction to determine which map to search.
 		switch (a) {
 			case 0x0: // Leading half byte 0.
-				if (d == 0x0) func = in_clr;
-				else if (d == 0xe) func = in_rts;
+				if (instruction == 0x00E0) func = in_clr;
+				else if (instruction == 0x00EE) func = in_rts;
 				else throw std::out_of_range("");
 				break;
 
@@ -214,7 +212,7 @@ void Chip8::run(_TimeType elapsed_time) {
 
 
 void Chip8::execute_cycle(_TimeType cycle_time) {
-	static _TimeType thousand {1000U};
+	static _TimeType timer_period {1000U / 60U};
 
 	// Grab the next instruction.
 	uint16_t instruction = get_hword(_pc);
@@ -223,8 +221,8 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	// Keep track of elapsed time to update the timers.
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
-	if (_timer >= thousand) {
-		_timer -= thousand;
+	if (_timer >= timer_period) {
+		_timer -= timer_period;
 		if (_delay != 0) _delay -= 1;
 		if (_sound != 0) _sound -= 1;
 	}
