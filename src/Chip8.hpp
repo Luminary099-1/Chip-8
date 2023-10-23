@@ -12,7 +12,28 @@
 #include <string>
 #include <thread>
 
-namespace chro = std::chrono;
+
+class Chip8SaveState {
+public:
+	// Type of std::chrono::duration to store the duration of execution.
+	typedef std::chrono::milliseconds _TimeType;
+	// The size of the Chip-8 VM's memory in bytes.
+	static constexpr uint16_t _Mem_Size = 4096;
+protected:
+	uint8_t		_gprf[16];			// General purpose register file.
+	uint16_t	_pc;				// Program counter.
+	uint16_t	_sp;				// Stack pointer.
+	uint16_t	_index;				// Memory index register.
+	uint8_t		_delay;				// Delay timer.
+	uint8_t		_sound;				// Sound timer.
+	uint8_t		_mem[_Mem_Size];	// VM memory.
+	uint64_t	_screen[32];		// Screen memory (1 dword = 1 row).
+	bool		_key_wait;			// True if in_keyd (FX0A) is "blocking".
+	bool		_sounding;			// True if sound is playing.
+	bool		_crashed;			// True if the VM crashed.
+	_TimeType	_time_budget;	// Amount of time available to execute cycles.
+	_TimeType	_timer;			// Stores the duration remaining for timers.
+};
 
 
 /**
@@ -27,13 +48,9 @@ struct Chip8Error : public std::runtime_error {
  * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
  * Chip-8 language.
  */
-class Chip8 {
+class Chip8 : public Chip8SaveState {
 	friend class TestChip8;
 public:
-	// Type of std::chrono::duration to store the duration of execution.
-	typedef chro::milliseconds _TimeType;
-	// The size of the Chip-8 VM's memory in bytes.
-	static constexpr uint16_t _Mem_Size = 4096;
 	// First address of the program space in Chip-8 memory.
 	static constexpr uint16_t _Prog_Start = 0x200;
 	// Last address of the program space in Chip-8 memory.
@@ -72,7 +89,7 @@ public:
 	 * 
 	 * @return A string containing the state of the VM.
 	 */
-	std::string get_state();
+	Chip8SaveState get_state();
 
 	/**
 	 * @brief Loads in the passed state into the VM to be resumed.
@@ -80,7 +97,7 @@ public:
 	 * @param source A reference to a string containing the VM state to be
 	 * loaded.
 	 */
-	void set_state(std::string& source);
+	void set_state(Chip8SaveState& source);
 
 	/**
 	 * @brief Indicats if the VM has crashed.
@@ -113,28 +130,13 @@ public:
 protected:
 	// Type of instruction implementing functions.
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
-	uint8_t		_gprf[16];			// General purpose register file.
-	uint16_t	_pc;				// Program counter.
-	uint16_t	_sp;				// Stack pointer.
-	uint16_t	_index;				// Memory index register.
-	uint8_t		_delay;				// Delay timer.
-	uint8_t		_sound;				// Sound timer.
-	uint8_t		_mem[_Mem_Size];	// VM memory.
-	uint64_t	_screen[32];		// Screen memory (1 dword = 1 row).
 
 	Chip8Keyboard*	_keyboard;	// Handles input (keyboard).
 	Chip8Display*	_display;	// Handles output (screen).
 	Chip8Sound*		_speaker;	// Handles output (sound).
 	Chip8Message*	_error;		// Received error notifications.
-
-	bool	_programmed;	// True if the machine has a program.
-	bool	_key_wait;		// True if in_keyd (FX0A) is "blocking".
-	bool	_sounding;		// True if sound is playing.
-	bool	_crashed;		// True if the VM crashed.
-
+	bool		_programmed;	// True if the machine has a program.
 	uint16_t	_freq;			// Instruction cycle frequency (default 500Hz).
-	_TimeType	_time_budget;	// Amount of time available to execute cycles.
-	_TimeType	_timer;			// Stores the duration remaining for timers.
 	
 	// VM font memory offset.
 	static constexpr uint16_t FONT_OFF {24};

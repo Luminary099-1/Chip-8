@@ -100,48 +100,14 @@ void Chip8::load_program(std::string& program) {
 }
 
 
-std::string Chip8::get_state() {
-	if (_crashed) throw std::logic_error("VM has crashed.");
-	std::string out = "";
-	size_t offset = 0;
-	out.append((char*) _gprf, sizeof(_gprf));
-	out.append((char*) &_pc, sizeof(_pc));
-	out.append((char*) &_sp, sizeof(_sp));
-	out.append((char*) &_index, sizeof(_index));
-	out.append((char*) &_delay, sizeof(_delay));
-	out.append((char*) &_sound, sizeof(_sound));
-	out.append((char*) _mem, sizeof(_mem));
-	out.append((char*) _screen, sizeof(_screen));
-	out.append((char*) _sounding, sizeof(_sounding));
-	return out;
+Chip8SaveState Chip8::get_state() {
+	Chip8SaveState state {static_cast<Chip8SaveState>(*this)};
+	return state;
 }
 
 
-void Chip8::set_state(std::string& source) {
-	size_t offset = 0;
-	const char* src = source.c_str();
-	memcpy(_gprf, src + offset, sizeof(_gprf));
-	offset += sizeof(_gprf);
-	memcpy(&_pc, src + offset, sizeof(_pc));	
-	offset += sizeof(_pc);
-	memcpy(&_sp, src + offset, sizeof(_sp));
-	offset += sizeof(_sp);
-	memcpy(&_index, src + offset, sizeof(_index));
-	offset += sizeof(_index);
-	memcpy(&_delay, src + offset, sizeof(_delay));
-	offset += sizeof(_delay);
-	memcpy(&_sound, src + offset, sizeof(_sound));
-	offset += sizeof(_sound);
-	memcpy(_mem, src + offset, sizeof(_mem));
-	offset += sizeof(_mem);
-	memcpy(_screen, src + offset, sizeof(_screen));
-	offset += sizeof(_screen);
-	memcpy(&_sounding, src + offset, sizeof(_sounding));
-	offset += sizeof(_sounding);
-	uint64_t count;
-	memcpy(&count, src + offset, sizeof(count));
-	_programmed = true;
-	_crashed = false;
+void Chip8::set_state(Chip8SaveState& source) {
+	memcpy(static_cast<Chip8SaveState*>(this), &source, sizeof(Chip8SaveState));
 }
 
 
