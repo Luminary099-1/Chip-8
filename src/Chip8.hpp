@@ -3,6 +3,7 @@
 #include "Chip8Observers.hpp"
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -28,9 +29,9 @@ protected:
 	uint8_t		_sound;				// Sound timer.
 	uint8_t		_mem[_Mem_Size];	// VM memory.
 	uint64_t	_screen[32];		// Screen memory (1 dword = 1 row).
-	bool		_key_wait;			// True if in_keyd (FX0A) is "blocking".
 	bool		_sounding;			// True if sound is playing.
 	bool		_crashed;			// True if the VM crashed.
+	std::atomic<bool> _key_wait;	// True if in_keyd (FX0A) is "blocking".
 	_TimeType	_time_budget;	// Amount of time available to execute cycles.
 	_TimeType	_timer;			// Stores the duration remaining for timers.
 };
@@ -125,6 +126,13 @@ public:
 	 * @param value The new frequency in Hz.
 	 */
 	void frequency(uint16_t value);
+
+	/**
+	 * @brief Call to indicated the passed key was just pressed.
+	 * 
+	 * @param key The value of the key that was just pressed.
+	 */
+	void key_pressed(uint8_t key);
 
 protected:
 	// Type of instruction implementing functions.

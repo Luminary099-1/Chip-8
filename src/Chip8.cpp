@@ -178,11 +178,7 @@ void Chip8::run(_TimeType elapsed_time) {
 
 
 void Chip8::execute_cycle(_TimeType cycle_time) {
-	static _TimeType timer_period {1000U / 60U};
-	// Grab the next instruction.
-	uint16_t instruction = get_hword(_pc);
-	// Get the instruction implementing function.
-	_InstrFunc instr_func = get_instr_func(instruction);
+	static constexpr _TimeType timer_period {1000U / 60U};
 	// Keep track of elapsed time to update the timers.
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
@@ -191,9 +187,15 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 		if (_delay != 0) _delay -= 1;
 		if (_sound != 0) _sound -= 1;
 	}
-	// Execute the next instruction.
+
+	if (_key_wait) return;
+
+	// Grab and execute the next instruction.
+	uint16_t instruction = get_hword(_pc);
+	_InstrFunc instr_func = get_instr_func(instruction);
 	instr_func(*this, instruction);
 	// Set the sound output to reflect the value of the timer.
+	// FIXME: The start/stop of the sound is not handled correctly here.
 	if (_sounding && _sound == 0) {
 		_speaker->stop_sound();
 		_sounding = false;
@@ -232,6 +234,14 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword) {
 	_mem[addr + 1] = hword & 0xff;
 }
 
+
+void Chip8::key_pressed(uint8_t key) {
+	if (!_key_wait) return;
+	if (key > 0xf) throw new std::domain_error("Key value too large.");
+	uint16_t instruction = get_hword(_pc - 2);
+	uint8_t x = INSTR_B;
+	_gprf[x] = key;
+}
 
 // Instruction Implementing Methods ============================================
 void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
@@ -409,17 +419,7 @@ void Chip8::in_moved(Chip8& vm, uint16_t instruction) { // FX07
 
 
 void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
-	// FIXME: Reimplement this to function with the new regine sans thread.
-	// uint8_t key;
-	// // Block cycles until they key press is made.
-	// vm._key_wait = true;
-	// // Wait for a keypress that takes place when the VM is running.
-	// do key = vm._keyboard->wait_key();
-	// // while (!vm._running);
-	// // Store the key value.
-	// vm._gprf[INSTR_B] = key;
-	// // Stop skipping instruction cycles.
-	// vm._key_wait = false;
+	vm._key_wait = true;
 }
 
 

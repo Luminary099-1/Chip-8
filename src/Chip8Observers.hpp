@@ -1,4 +1,5 @@
 #pragma once
+#include "Chip8.hpp"
 #include <cstdint>
 
 
@@ -13,14 +14,6 @@ struct Chip8Keyboard {
 	 * @return True if the key is pressed; false otherwise.
 	 */
 	virtual bool test_key(uint8_t key) = 0;
-
-	/**
-	 * @brief Blocks until a keypress is made for the VM and returns the half
-	 * byte that corresponds to the key pressed.
-	 * 
-	 * @return The value of the pressed key.
-	 */
-	virtual uint8_t wait_key() = 0;
 };
 
 
