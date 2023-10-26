@@ -101,6 +101,7 @@ void Chip8::load_program(std::string& program) {
 
 
 Chip8SaveState Chip8::get_state() {
+	// FIXME: Compiler error here. To be investigated later.
 	Chip8SaveState state {static_cast<Chip8SaveState>(*this)};
 	return state;
 }
@@ -195,11 +196,10 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	_InstrFunc instr_func = get_instr_func(instruction);
 	instr_func(*this, instruction);
 	// Set the sound output to reflect the value of the timer.
-	// FIXME: The start/stop of the sound is not handled correctly here.
 	if (_sounding && _sound == 0) {
 		_speaker->stop_sound();
 		_sounding = false;
-	} else if (!_sounding && _sound >= 2) {
+	} else if (_sound >= 2) {
 		_speaker->start_sound();
 		_sounding = true;
 	}
@@ -221,6 +221,11 @@ void Chip8::frequency(uint16_t value) {
 
 bool Chip8::is_crashed() {
 	return _crashed;
+}
+
+
+bool Chip8::is_sounding() {
+	return _sounding;
 }
 
 

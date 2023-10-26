@@ -101,11 +101,14 @@ public:
 	void set_state(Chip8SaveState& source);
 
 	/**
-	 * @brief Indicats if the VM has crashed.
-	 * 
 	 * @return Returns true if the VM crashed; false otherwise.
 	 */
 	bool is_crashed();
+
+	/**
+	 * @return Returns true if the VM is making sound; false otherwise.
+	 */
+	bool is_sounding();
 
 	/**
 	 * @brief Run the emulator for the specified duration.
