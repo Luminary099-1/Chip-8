@@ -20,20 +20,25 @@ public:
 	typedef std::chrono::milliseconds _TimeType;
 	// The size of the Chip-8 VM's memory in bytes.
 	static constexpr uint16_t _Mem_Size = 4096;
+	// Default constructor.
+	Chip8SaveState();
+	// Copy constructor.
+	Chip8SaveState(Chip8SaveState& state);
+
 protected:
-	uint8_t		_gprf[16];			// General purpose register file.
-	uint16_t	_pc;				// Program counter.
-	uint16_t	_sp;				// Stack pointer.
-	uint16_t	_index;				// Memory index register.
-	uint8_t		_delay;				// Delay timer.
-	uint8_t		_sound;				// Sound timer.
-	uint8_t		_mem[_Mem_Size];	// VM memory.
-	uint64_t	_screen[32];		// Screen memory (1 dword = 1 row).
-	bool		_sounding;			// True if sound is playing.
-	bool		_crashed;			// True if the VM crashed.
-	std::atomic<bool> _key_wait;	// True if in_keyd (FX0A) is "blocking".
-	_TimeType	_time_budget;	// Amount of time available to execute cycles.
-	_TimeType	_timer;			// Stores the duration remaining for timers.
+	uint8_t		_gprf[16] {0};				// General purpose register file.
+	uint16_t	_pc {0};					// Program counter.
+	uint16_t	_sp {0};					// Stack pointer.
+	uint16_t	_index {0};					// Memory index register.
+	uint8_t		_delay {0};					// Delay timer.
+	uint8_t		_sound {0};					// Sound timer.
+	uint8_t		_mem[_Mem_Size] {0};		// VM memory.
+	uint64_t	_screen[32] {0};			// Screen memory (1 dword = 1 row).
+	bool		_sounding {false};			// True if sound is playing.
+	bool		_crashed {false};			// True if the VM crashed.
+	std::atomic<bool> _key_wait {false};	// True if in_keyd is waiting.
+	_TimeType	_time_budget {0};	// Time available to execute cycles.
+	_TimeType	_timer {0};			// Stores the duration remaining for timers.
 };
 
 

@@ -14,6 +14,26 @@
 #define INSTR_IMM (instruction & 0x00ff)
 
 
+Chip8SaveState::Chip8SaveState() {}
+
+
+Chip8SaveState::Chip8SaveState(Chip8SaveState& state) {
+	memcpy(_gprf, state._gprf, sizeof(_gprf));
+	_pc = state._pc;
+	_sp = state._sp;
+	_index = state._index;
+	_delay = state._delay;
+	_sound = state._sound;
+	memcpy(_mem, state._mem, sizeof(_mem));
+	memcpy(_screen, state._screen, sizeof(_screen));
+	_sounding = state._sounding;
+	_crashed = state._crashed;
+	_key_wait = state._key_wait.load();
+	_time_budget = state._time_budget;
+	_timer = state._timer;
+}
+
+
 // Instructions with leading half bytes of 1, 2, A, and B.
 const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 	{0x1, in_jump},
@@ -101,7 +121,6 @@ void Chip8::load_program(std::string& program) {
 
 
 Chip8SaveState Chip8::get_state() {
-	// FIXME: Compiler error here. To be investigated later.
 	Chip8SaveState state {static_cast<Chip8SaveState>(*this)};
 	return state;
 }
