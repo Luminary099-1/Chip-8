@@ -38,9 +38,8 @@ Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
 	// Set the size to enforce the aspect ratio.
 	SetSize(2, 1);
 	// Initialize the data structures for the screen image.
-	_image = new wxImage(64, 32, true);
-	_screen_buf = (uint8_t*) malloc(64 * 32 * 3);
-	_image->SetData(_screen_buf, true);
+	_screen_buf = (uint8_t*) calloc(64 * 32, 3);
+	_image = new wxImage(64, 32, _screen_buf, true);
 	// Bind the paint and resize events.
 	Bind(wxEVT_PAINT, &Chip8ScreenPanel::paint_event, this);
 	Bind(wxEVT_SIZE, &Chip8ScreenPanel::on_size, this);
@@ -49,7 +48,6 @@ Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
 
 Chip8ScreenPanel::~Chip8ScreenPanel() {
 	delete _image;
-	free(_screen_buf);
 }
 
 
@@ -61,26 +59,26 @@ void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
 
 
 void Chip8ScreenPanel::paint_now(uint64_t* screen) {
+	size_t offset {0};
 	// Iterate over the VM's screen.
-	for (int y = 0; y < 32; y ++) {
+	for (int y {0}; y < 32; y ++) {
 		// Initialize a mask to test pixels in the screen.
-		uint64_t mask = 1ULL << 63;
-		for (int x = 0; x < 64; x ++) {
+		uint64_t mask {1ULL << 63};
+		for (int x {0}; x < 64; x ++) {
 			// Compute the base offset in the screen buffer for the next pixel.
-			int offset = x * y * 3;
-			// If the pixel's bit is set, render it white.
-			if (mask & screen[y] > 0) {
-				_screen_buf[offset] = 0xffff;
-				_screen_buf[offset + 1] = 0xffff;
-				_screen_buf[offset + 2] = 0xffff;
-			// Otherwise, render it black.
-			} else {
-				_screen_buf[offset] = 0x0000;
-				_screen_buf[offset + 1] = 0x0000;
-				_screen_buf[offset + 2] = 0x0000;
-			}
+			// int offset {(y * 64 + x) * 3};
+
+			// Render set pixels as white; black otherwise.
+			uint8_t value {0x00};
+			if (mask & screen[y]) value = 0xff;
+
+			// Set the values in the buffer.
+			_screen_buf[offset++] = value;
+			_screen_buf[offset++] = value;
+			_screen_buf[offset++] = value;
+
 			// Shuffle the bitmask along one bit.
-			mask = 1 >> mask;
+			mask = mask >> 1;
 		}
 	}
 	// Update the rendering to the window.
@@ -112,6 +110,10 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	SetSize(1280, 720);
 	Center();
 	_vm = new Chip8(this, this, this, this);
+	_run_lock.lock();
+	_runner = std::thread(&MainFrame::run_vm, this);
+	_running = false;
+
 	// Set up the "File" menu dropdown.
 	wxMenu* _menu_file = new wxMenu;
 	_menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
@@ -153,29 +155,13 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
-	// Initialize the keyboard input handling variables.
-	_pressed = -1;
-	_key_wait = false;
+	// Initialize the keyboard key states.
 	for (int i = 0; i < 16; i ++) _key_states[i] = false;
 }
 
 
 bool MainFrame::test_key(uint8_t key) {
 	return _key_states.at(key);
-}
-
-
-uint8_t MainFrame::wait_key() {
-	// Indicate the VM is waiting for a keypress.
-	_key_wait = true;
-	// Wait for the keypress.
-	while (_key_wait);
-	// Grab the value of the pressed key.
-	int key = _pressed;
-	// Reset the value passing variable.
-	_pressed = -1;
-	// Return the pressed key value.
-	return key;
 }
 
 
@@ -214,15 +200,9 @@ void MainFrame::on_key_up(wxKeyEvent& event) {
 void MainFrame::on_key_down(wxKeyEvent& event) {
 	// Set the key in the map if it is valid.
 	try {
-		int key = key_map.at(event.GetUnicodeKey());
+		uint8_t key = key_map.at(event.GetUnicodeKey());
 		_key_states[key] = true;
-		// If the VM is waiting for a keypress.
-		if (_key_wait) {
-			// Set the key value passing variable.
-			_pressed = key;
-			// Indicate the wait is over.
-			_key_wait = false;
-		}
+		_vm->key_pressed(key);
 	} catch (std::out_of_range& e) {
 		return;
 	}
@@ -252,93 +232,86 @@ void MainFrame::on_open(wxCommandEvent& event) {
 
 
 void MainFrame::on_save(wxCommandEvent& event) {
-	// Pause the VM is it is running.
-	bool running = _vm->is_running();
-	if (running) _vm->stop();
-	// Grab the state.
-	std::string state = _vm->get_state();
+	bool was_running = _running;
+	stop_vm();
+	Chip8SaveState state = _vm->get_state();
+
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
+
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() != wxID_CANCEL) {
-		// Grab the selected file path.
+		// Grab the selected file path and open the file.
 		std::string path = saveDalog.GetPath();
 		std::ofstream state_file;
 		state_file.open(path, std::ofstream::out);
 		// Write the state to the file and close it.
-		state_file << state;
+		state_file .write((char*) &state, sizeof(state));
 		state_file.close();
 	}
-	// Resume the VM if it was running.
-	if (running) _vm->start();
+	
+	if (was_running) start_vm();
 }
 
 
 void MainFrame::on_load(wxCommandEvent& event) {
-	// Pause the VM is it is running.
-	if (_vm->is_running()) _vm->stop();
+	stop_vm();
+
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Open Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
+
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() != wxID_CANCEL) {
 		// Grab the selected file path.
 		std::string path = saveDalog.GetPath();
 		// Read the state from the file and close it.
 		std::ifstream state_file(path, std::fstream::binary);
-		std::stringstream sstr;
-		sstr << state_file.rdbuf();
+		Chip8SaveState state {};
+		state_file.read((char*) &state, sizeof(state));
 		state_file.close();
 		// Pass the state to the VM.
-		_vm->set_state(sstr.str());
+		_vm->set_state(state);
 	}
 }
 
 
 void MainFrame::on_run(wxCommandEvent& event) {
-	// Attempt to start the VM; show and error if something is wrong.
-	try {
-		_vm->start();
-	} catch (std::logic_error& e) {
-		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
-		return;
-	}
+	start_vm();
 	// Set the status bar to indicate the VM is running.
-	std::string msg = "VM Running @" + std::to_string(_vm->_freq);
-	msg += "Hz";
+	std::string msg = "VM Running @" + std::to_string(_vm->frequency()) + "Hz.";
 	SetStatusText(msg);
 }
 
 
 void MainFrame::on_stop(wxCommandEvent& event) {
-	try {
-		_vm->stop();
-		SetStatusText("Idle");
-	} catch (std::logic_error& e) {
-		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
-		return;
-	}
+	stop_vm();
+	SetStatusText("Idle.");
 }
 
 
 void MainFrame::on_set_freq(wxCommandEvent& event) {
-	// Pause the VM is it is running.
-	bool running = _vm->is_running();
-	if (running) _vm->stop();
+	bool was_running = _running;
+	stop_vm();
+
 	// Construct a dialog to select the desired frequency,
 	wxNumberEntryDialog freqDialog(this, "Set Emulation Frequency", "", "",
-		_vm->_freq, 1, 10000);
-	// Return if the user doesn't select a file.
-	if (freqDialog.ShowModal() == wxID_CANCEL) return;
-	// Set the frequency.
-	_vm->_freq = (uint16_t) freqDialog.GetValue();
-	// Resume the VM if it was running.
-	if (running) _vm->start();
+		_vm->frequency(), 1, 10000); // TODO: Determine sane bounds.
+
+	// If the user accepts, set the frequency.
+	if (freqDialog.ShowModal() != wxID_CANCEL)
+		_vm->frequency((uint16_t) freqDialog.GetValue());
+
+	if (was_running) start_vm();
 }
 
 
 void MainFrame::on_exit(wxCommandEvent& event) {
+	// FIXME: Exception is thrown when the application is closed.
+	_die = true;
+	start_vm();
+	_runner.join();
 	Close(true);
 }
 
@@ -349,4 +322,28 @@ void MainFrame::on_about(wxCommandEvent& event) {
 	wxMessageBox("This program is a virtual machine for the original Chip-8 "
 		"language that most commonly ran on the RCA COSMAC VIP.",
 		"About this Chip-8 Emulator", wxOK | wxICON_INFORMATION | wxCENTER);
+}
+
+
+void MainFrame::run_vm(MainFrame* frame) {
+	static constexpr Chip8::_TimeType cycle_period {1000U / 60U};
+	while (true) {
+		frame->_run_lock.lock();
+		if (frame->_die) break;
+		frame->_vm->run(cycle_period);
+		frame->_run_lock.unlock();
+		std::this_thread::sleep_for(cycle_period);
+	}
+}
+
+
+void MainFrame::start_vm() {
+	if (!_running) _run_lock.unlock();
+	_running = true;
+}
+
+
+void MainFrame::stop_vm() {
+	if (_running) _run_lock.lock();
+	_running = false;
 }

@@ -208,7 +208,7 @@ protected:
 	 */
 	void set_hword(uint16_t addr, uint16_t hword);
 
-public:
+// public: TODO: Remove if no issue with protecting the instructions arises.
 	/* Instruction Implementing Methods ========================================
 	 * Each instruction description below begins with its CHIP-8 opcode. Legend:
 	 *		N = A hexadecimal digit.

@@ -274,7 +274,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 
 
 void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
-	for (size_t i = 0; i < sizeof(vm._screen); i ++) vm._screen[i] = 0;
+	memset(vm._screen, 0, sizeof(vm._screen));
 	vm._display->draw(vm._screen);
 }
 
@@ -405,17 +405,19 @@ void Chip8::in_rand(Chip8& vm, uint16_t instruction) { // CXNN
 }
 
 
+// TODO: Consider trying to simplify this function.
 void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 	vm._gprf[0x0f] = 0x00; // Initialize the overwite flag to 0.
 	// Grab the sprite coordinates.
-	uint8_t xpos = INSTR_B;
-	uint8_t ypos = INSTR_C;
+	uint8_t xpos {vm._gprf[INSTR_B]};
+ 	uint8_t ypos {vm._gprf[INSTR_C]};
 	// Iterate over each line of the sprite.
-	for (uint8_t y = 0; y < std::min(INSTR_D, 31); y ++) {
+	for (uint8_t y {0}; y < std::min(INSTR_D, 32); ++y) {
 		// Grab the line from the sprite and shift it to its x position.
 		if (vm._index + y < _Prog_Start || vm._index + y > _Prog_End)
 			Chip8Error("Illegal VM memory operation.");
-		uint64_t spr_line = (uint64_t) vm._mem[vm._index + y] << (xpos - 24);
+		uint64_t spr_line
+			= static_cast<uint64_t>(vm._mem[vm._index + y]) << (56 - xpos);
 		// Determine the new screen line.
 		uint64_t new_line = vm._screen[ypos + y] ^ spr_line;
 		// Set the flag if an overrite happened.

@@ -2,6 +2,10 @@
 
 #include "Chip8.hpp"
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/sound.h>
 #include <wx/wxprec.h>
@@ -91,10 +95,12 @@ public:
 
 private:
 	Chip8* 				_vm;		// Chip-8 VM.
+	std::thread			_runner;	// Thread to run the VM.
+	std::mutex			_run_lock;	// To control the running of the VM thread.
+	bool				_running;	// Indicates the the VM is running.
+	std::atomic<bool>	_die;		// Indicates the thread should exit.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
 	wxSound*			_sound;		// Emits the tone played by the Chip-8 VM.
-	std::atomic<int>	_pressed;	// Stores the key just pressed, or -1.
-	std::atomic<int>	_key_wait;	// True if the VM is waiting for a keypress.
 	std::map<uint8_t, bool> _key_states; // Stores the state of each Chip-8 key.
 
 	/**
@@ -104,13 +110,6 @@ private:
 	 * @return 
 	 */
 	bool test_key(uint8_t key) override;
-
-	/**
-	 * @brief 
-	 * 
-	 * @return uint8_t 
-	 */
-	uint8_t wait_key() override;
 
 	/**
 	 * @brief 
@@ -220,6 +219,24 @@ private:
  	 * @param event The event produced when the user presses "Help->About".
 	 */
 	void on_about(wxCommandEvent& event);
+
+	/**
+	 * @brief 
+	 * 
+	 */
+	static void run_vm(MainFrame* frame);
+
+	/**
+	 * @brief 
+	 * 
+	 */
+	void start_vm();
+
+	/**
+	 * @brief 
+	 * 
+	 */
+	void stop_vm();
 };
 
 
