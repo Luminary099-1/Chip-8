@@ -5,9 +5,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
-#include <fstream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -162,6 +160,17 @@ public:
 	 * is greater than 15.
 	 */
 	void key_pressed(uint8_t key);
+
+	/**
+	 * @brief Provides access to the VM's screen buffer for drawing.
+	 * 
+	 * Blocks if any blocking operating is being used by another thread until
+	 * release_screen_buf() is called.
+	 * 
+	 * @return A pointer to the 64-bit value containing the first line of screen
+	 * data.
+	 */
+	uint64_t* get_screen_buf();
 
 protected:
 	// Type of instruction implementing functions.

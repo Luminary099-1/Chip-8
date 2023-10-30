@@ -28,9 +28,9 @@ enum {
 };
 
 
-class Chip8ScreenPanel : public wxPanel {
+class Chip8ScreenPanel : public wxPanel, public Chip8Display {
 private:
-	uint8_t* _screen_buf;	// Space to store the image before passing to WX.
+	uint8_t* _image_buf;	// Space to store the image before passing to WX.
 	wxImage* _image;		// The image that will contain the screen data.
 	wxBitmap _resized;		// Stores the resized screen to be rendered.
 
@@ -56,15 +56,6 @@ public:
 	void paint_event(wxPaintEvent& event);
 
 	/**
-	 * @brief Updates the data in the member _image with the Chip-8 VM screen
-	 * data that is referenced.
-	 * 
-	 * @param screen A pointer to an array of 32, 64-bit unsigned integers that
-	 * makes up the screen of the Chip-8 VM.
-	 */
-	void paint_now(uint64_t* screen);
-
-	/**
 	 * @brief Handles the resize events for the panel by having the image
 	 * rendered to fill the new size.
 	 * 
@@ -78,14 +69,20 @@ public:
 	 * @param dc The device context onto which the _image is to be rendered.
 	 */
 	void render(wxDC& dc);
+
+	/**
+	 * @brief 
+	 * 
+	 */
+	void draw() override;
 };
 
 
 /**
  * @brief Frame class for the primary window UI of the emulator.
  */
-class MainFrame : public wxFrame, public Chip8Keyboard,
-	public Chip8Display, public Chip8Sound, public Chip8Message {
+class MainFrame: public wxFrame, public Chip8Keyboard,
+	public Chip8Sound, public Chip8Message {
 public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
@@ -109,13 +106,6 @@ private:
 	 * @return 
 	 */
 	bool test_key(uint8_t key) override;
-
-	/**
-	 * @brief 
-	 * 
-	 * @param screen 
-	 */
-	void draw(uint64_t* screen) override;
 
 	/**
 	 * @brief 

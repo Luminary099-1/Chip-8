@@ -28,17 +28,15 @@ const std::map<wxChar, uint8_t> key_map = {
 bool Chip8CPP::OnInit() {
 	_frame = new MainFrame();
 	_frame->Show(true);
-	// Indicates the app should continue running after returning.
-	return true;
+	return true; // The app should continue running after returning.
 }
 
 
 Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
-	// Set the size to enforce the aspect ratio.
-	SetSize(2, 1);
+	SetSize(2, 1); // Set the size to enforce the aspect ratio.
 	// Initialize the data structures for the screen image.
-	_screen_buf = (uint8_t*) calloc(64 * 32, 3);
-	_image = new wxImage(64, 32, _screen_buf, true);
+	_image_buf = (uint8_t*) calloc(64 * 32, 3);
+	_image = new wxImage(64, 32, _image_buf, true);
 	// Bind the paint and resize events.
 	Bind(wxEVT_PAINT, &Chip8ScreenPanel::paint_event, this);
 	Bind(wxEVT_SIZE, &Chip8ScreenPanel::on_size, this);
@@ -57,9 +55,15 @@ void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
 }
 
 
-void Chip8ScreenPanel::paint_now(uint64_t* screen) {
-	// The screen buffer offset.
-	size_t offset {0};
+void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
+	Refresh(false); // Causes EVT_PAINT to be fired.
+}
+
+
+void Chip8ScreenPanel::draw() {
+	uint64_t* screen = _vm->get_screen_buf();
+	size_t offset {0}; // The image buffer offset.
+
 	// Iterate over the VM's screen.
 	for (int y {0}; y < 32; y ++) {
 		// Initialize a mask to test pixels in the screen.
@@ -70,31 +74,23 @@ void Chip8ScreenPanel::paint_now(uint64_t* screen) {
 			if (mask & screen[y]) value = 0xff;
 
 			// Set the values in the buffer.
-			_screen_buf[offset++] = value;
-			_screen_buf[offset++] = value;
-			_screen_buf[offset++] = value;
+			_image_buf[offset++] = value;
+			_image_buf[offset++] = value;
+			_image_buf[offset++] = value;
 
 			// Shuffle the bitmask along one bit.
 			mask = mask >> 1;
 		}
 	}
-	// Update the rendering to the window.
-	_image->SetData(_screen_buf, true);
-	wxClientDC dc(this);
-    render(dc);
-}
 
-
-void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
-	// Refresh causes render.
-	Refresh();
-	event.Skip();
+	Refresh(false); // Causes EVT_PAINT to be fired.
 }
 
 
 void Chip8ScreenPanel::render(wxDC& dc) {
 	// Grab the size of the panel.
-	int w, h;
+	int w;
+	int h;
 	dc.GetSize(&w, &h);
 	// Obtain a bitmap of the image object with the same size; render it.
 	_resized = wxBitmap(_image->Scale(w, h /*, wxIMAGE_QUALITY_HIGH*/));
@@ -103,14 +99,6 @@ void Chip8ScreenPanel::render(wxDC& dc) {
 
 
 MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
-	// Configure the window size and position and create the VM.
-	SetSize(1280, 720);
-	Center();
-	_vm = new Chip8(this, this, this, this);
-	_run_lock.lock();
-	_runner = std::thread(&MainFrame::run_vm, this);
-	_running = false;
-
 	// Set up the "File" menu dropdown.
 	wxMenu* menu_file = new wxMenu;
 	menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
@@ -155,16 +143,19 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_CLOSE_WINDOW, &MainFrame::on_close, this, wxID_ANY);
 	// Initialize the keyboard key states.
 	for (int i = 0; i < 16; i ++) _key_states[i] = false;
+
+	// Configure the window size and position and create the VM.
+	SetSize(1280, 720);
+	Center();
+	_vm = new Chip8(this, _screen, this, this);
+	_run_lock.lock();
+	_runner = std::thread(&MainFrame::run_vm, this);
+	_running = false;
 }
 
 
 bool MainFrame::test_key(uint8_t key) {
 	return _key_states.at(key);
-}
-
-
-void MainFrame::draw(uint64_t* screen) {
-	_screen->paint_now(screen);
 }
 
 

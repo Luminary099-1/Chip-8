@@ -20,14 +20,21 @@ struct Chip8Keyboard {
 /**
  * @brief Delegate to handle display output for the Chip-8 VM.
  */
-struct Chip8Display {
+class Chip8Display {
+protected:
+	friend class Chip8;
+
+	/**
+	 * @brief The VM this object will act as display for. Will be assigned by
+	 * the VM upon its construction.
+	 */
+	Chip8* _vm;
+
+public:
 	/**
 	 * @brief Called if the VM has updated the display output.
-	 * 
-	 * @param screen A pointer to the screen memory, consisting of 32 64-bit
-	 * values, each bit representing a pixel.
 	 */
-	virtual void draw(uint64_t* screen) = 0;
+	virtual void draw() = 0;
 };
 
 

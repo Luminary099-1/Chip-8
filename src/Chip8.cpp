@@ -1,9 +1,9 @@
 #include "Chip8.hpp"
 
-#include <cstdlib>
-#include <stdexcept>
 #include <algorithm>
+#include <cstdlib>
 #include <sstream>
+#include <stdexcept>
 
 // Macros for accessing specific parts of instructions.
 #define INSTR_A ((instruction & 0xf000) >> 12)
@@ -90,6 +90,7 @@ Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
 	_freq = 500;
 	_programmed = false;
+	_display->_vm = this;
 }
 
 
@@ -284,6 +285,12 @@ void Chip8::key_pressed(uint8_t key) {
 	_access_lock.unlock();
 }
 
+
+uint64_t* Chip8::get_screen_buf() {
+	return _screen;
+}
+
+
 // Instruction Implementing Methods ============================================
 void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 	// Originally called machine code instruction, does nothing here.
@@ -292,7 +299,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
 
 void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
 	memset(vm._screen, 0, sizeof(vm._screen));
-	vm._display->draw(vm._screen);
+	vm._display->draw();
 }
 
 
@@ -442,7 +449,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 		// Update the screen memory with the new line.
 		vm._screen[ypos + y] = new_line;
 	}
-	vm._display->draw(vm._screen);
+	vm._display->draw();
 }
 
 
