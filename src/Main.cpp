@@ -26,10 +26,9 @@ const std::map<wxChar, uint8_t> key_map = {
 
 
 bool Chip8CPP::OnInit() {
-	// Create and show the main window.
-	MainFrame* frame = new MainFrame();
-	frame->Show(true);
-	// Indicate the app should continue running after returning.
+	_frame = new MainFrame();
+	_frame->Show(true);
+	// Indicates the app should continue running after returning.
 	return true;
 }
 
@@ -59,15 +58,13 @@ void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
 
 
 void Chip8ScreenPanel::paint_now(uint64_t* screen) {
+	// The screen buffer offset.
 	size_t offset {0};
 	// Iterate over the VM's screen.
 	for (int y {0}; y < 32; y ++) {
 		// Initialize a mask to test pixels in the screen.
 		uint64_t mask {1ULL << 63};
 		for (int x {0}; x < 64; x ++) {
-			// Compute the base offset in the screen buffer for the next pixel.
-			// int offset {(y * 64 + x) * 3};
-
 			// Render set pixels as white; black otherwise.
 			uint8_t value {0x00};
 			if (mask & screen[y]) value = 0xff;
@@ -115,35 +112,35 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	_running = false;
 
 	// Set up the "File" menu dropdown.
-	wxMenu* _menu_file = new wxMenu;
-	_menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
-	_menu_file->Append(ID_FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
-	_menu_file->Append(ID_FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
-	_menu_file->AppendSeparator();
-	_menu_file->Append(wxID_EXIT);
+	wxMenu* menu_file = new wxMenu;
+	menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
+	menu_file->Append(ID_FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
+	menu_file->Append(ID_FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
+	menu_file->AppendSeparator();
+	menu_file->Append(wxID_EXIT);
 	// Set up the "Emulation" menu dropdown.
-	wxMenu* _menu_emu = new wxMenu;
-	_menu_emu->Append(ID_EMU_RUN, "&Run\tCtrl-R", "Run the emulator");
-	_menu_emu->Append(ID_EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
-	_menu_emu->Append(ID_EMU_SET_FREQ, "&Set Frequency\t"
+	wxMenu* menu_emu = new wxMenu;
+	menu_emu->Append(ID_EMU_RUN, "&Run\tCtrl-R", "Run the emulator");
+	menu_emu->Append(ID_EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
+	menu_emu->Append(ID_EMU_SET_FREQ, "&Set Frequency\t"
 		"Ctrl-F", "Set the instruction frequency of the emulator");
 	// Set up the "Help" menu dropdown.
-	wxMenu* _menu_help = new wxMenu;
-	_menu_help->Append(wxID_ABOUT);
+	wxMenu* menu_help = new wxMenu;
+	menu_help->Append(wxID_ABOUT);
 	// Add all menu dropdowns to the menu and add the menu and status bars.
-	wxMenuBar* _menuBar = new wxMenuBar;
-	_menuBar->Append(_menu_file, "&File");
-	_menuBar->Append(_menu_emu, "&Emulation");
-	_menuBar->Append(_menu_help, "&Help");
-	SetMenuBar(_menuBar);
+	wxMenuBar* menuBar = new wxMenuBar;
+	menuBar->Append(menu_file, "&File");
+	menuBar->Append(menu_emu, "&Emulation");
+	menuBar->Append(menu_help, "&Help");
+	SetMenuBar(menuBar);
 	CreateStatusBar();
 	SetStatusText("No program loaded, idle");
 	// Set up the sound display for the VM.
 	_sound = new wxSound("500.wav", false);
-	wxBoxSizer* _sizer = new wxBoxSizer(wxHORIZONTAL);
 	_screen = new Chip8ScreenPanel(this);
-	_sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
-	SetSizer(_sizer);
+	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+	sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
+	SetSizer(sizer);
 	//Bind events for this window.
 	Bind(wxEVT_KEY_DOWN, &MainFrame::on_key_down, this);
 	Bind(wxEVT_KEY_UP, &MainFrame::on_key_up, this);
@@ -155,6 +152,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
+	Bind(wxEVT_CLOSE_WINDOW, &MainFrame::on_close, this, wxID_ANY);
 	// Initialize the keyboard key states.
 	for (int i = 0; i < 16; i ++) _key_states[i] = false;
 }
@@ -278,10 +276,15 @@ void MainFrame::on_load(wxCommandEvent& event) {
 
 
 void MainFrame::on_run(wxCommandEvent& event) {
-	start_vm();
-	// Set the status bar to indicate the VM is running.
+	if (!_vm->is_programmed()) {
+		wxMessageBox("Unable to start the VM without loading a program.",
+			"Error", wxOK | wxICON_ERROR | wxCENTRE, this);
+		return;
+	}
+
 	std::string msg = "VM Running @" + std::to_string(_vm->frequency()) + "Hz.";
 	SetStatusText(msg);
+	start_vm();
 }
 
 
@@ -297,7 +300,7 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 
 	// Construct a dialog to select the desired frequency,
 	wxNumberEntryDialog freqDialog(this, "Set Emulation Frequency", "", "",
-		_vm->frequency(), 1, 10000); // TODO: Determine sane bounds.
+		_vm->frequency(), 1, 10000);
 
 	// If the user accepts, set the frequency.
 	if (freqDialog.ShowModal() != wxID_CANCEL)
@@ -308,11 +311,21 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 
 
 void MainFrame::on_exit(wxCommandEvent& event) {
-	// FIXME: Exception is thrown when the application is closed.
+	close();
+}
+
+
+void MainFrame::on_close(wxCloseEvent& event) {
+	close();
+}
+
+
+void MainFrame::close() {
 	_die = true;
 	start_vm();
 	_runner.join();
-	Close(true);
+	delete _vm;
+	this->Destroy();
 }
 
 
@@ -329,7 +342,10 @@ void MainFrame::run_vm(MainFrame* frame) {
 	static constexpr Chip8::_TimeType cycle_period {1000U / 60U};
 	while (true) {
 		frame->_run_lock.lock();
-		if (frame->_die) break;
+		if (frame->_die) {
+			frame->_run_lock.unlock();
+			break;
+		}
 		frame->_vm->run(cycle_period);
 		frame->_run_lock.unlock();
 		std::this_thread::sleep_for(cycle_period);

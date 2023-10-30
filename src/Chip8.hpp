@@ -36,6 +36,7 @@ protected:
 	uint64_t	_screen[32] {0};			// Screen memory (1 dword = 1 row).
 	bool		_sounding {false};			// True if sound is playing.
 	bool		_crashed {false};			// True if the VM crashed.
+	bool		_programmed;				// True if a program is loaded.
 	std::atomic<bool> _key_wait {false};	// True if in_keyd is waiting.
 	_TimeType	_time_budget {0};	// Time available to execute cycles.
 	_TimeType	_timer {0};			// Stores the duration remaining for timers.
@@ -106,14 +107,19 @@ public:
 	void set_state(Chip8SaveState& source);
 
 	/**
-	 * @return Returns true if the VM crashed; false otherwise.
+	 * @return true if the VM crashed; false otherwise.
 	 */
 	bool is_crashed();
 
 	/**
-	 * @return Returns true if the VM is making sound; false otherwise.
+	 * @return true if the VM is making sound; false otherwise.
 	 */
 	bool is_sounding();
+
+	/**
+	 * @return true if the VM has a program loaded; false otherwise.
+	 */
+	bool is_programmed();
 
 	/**
 	 * @brief Run the emulator for the specified duration.
@@ -150,7 +156,6 @@ protected:
 	Chip8Display*	_display;	// Handles output (screen).
 	Chip8Sound*		_speaker;	// Handles output (sound).
 	Chip8Message*	_error;		// Received error notifications.
-	bool		_programmed;	// True if the machine has a program.
 	uint16_t	_freq;			// Instruction cycle frequency (default 500Hz).
 	
 	// VM font memory offset.

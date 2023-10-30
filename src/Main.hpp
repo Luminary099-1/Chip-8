@@ -15,17 +15,16 @@
 
 
 /**
- * @brief App class for the UI of the emulator.
+ * @brief Enumeration of all events required in the UI.
  */
-class Chip8CPP : public wxApp {
-public:
-	/**
-	 * @brief Creates the main application window + frame.
-	 * 
-	 * @return Returns true as the application is to continue running until
-	 * closed from the UI.
-	 */
-	bool OnInit() override;
+enum {
+	ID_FILE_OPEN = 0,
+	ID_FILE_SAVE,
+	ID_FILE_LOAD,
+	ID_FILE_EXIT,
+	ID_EMU_RUN,
+	ID_EMU_STOP,
+	ID_EMU_SET_FREQ,
 };
 
 
@@ -221,36 +220,53 @@ private:
 	void on_about(wxCommandEvent& event);
 
 	/**
-	 * @brief 
+	 * @brief Handles the close button on the window, closing the application.
 	 * 
+ 	 * @param event The event produced when the user presses "X" on the window
+	 * border.
+	 */
+	void on_close(wxCloseEvent& event);
+
+	/**
+	 * @brief Closes the application by making the runner thread exit and
+	 * closing the window.
+	 */
+	void close();
+
+	/**
+	 * @brief Main loop to operate the VM at the specified frequency. If able to
+	 * lock the _runner_lock mutex, a batch of VM cycles will be run. If a batch
+	 * is run, the thread sleeps for a sixtieth of a second. Execution is paused
+	 * by locking the mutex from the main thread. If _die is set, then the
+	 * thread exits when able to lock the mutex.
 	 */
 	static void run_vm(MainFrame* frame);
 
 	/**
-	 * @brief 
-	 * 
+	 * @brief Allows the VM to execute cycles by unlocking _runner_lock.
 	 */
 	void start_vm();
 
 	/**
-	 * @brief 
-	 * 
+	 * @brief Prevents the VM to execute cycles by locking _runner_lock.
 	 */
 	void stop_vm();
 };
 
 
 /**
- * @brief Enumeration of all events required in the UI.
+ * @brief App class for the UI of the emulator.
  */
-enum {
-	ID_FILE_OPEN = 0,
-	ID_FILE_SAVE,
-	ID_FILE_LOAD,
-	ID_FILE_EXIT,
-	ID_EMU_RUN,
-	ID_EMU_STOP,
-	ID_EMU_SET_FREQ,
+class Chip8CPP : public wxApp {
+	MainFrame* _frame;
+public:
+	/**
+	 * @brief Creates the main application window + frame.
+	 * 
+	 * @return Returns true as the application is to continue running until
+	 * closed from the UI.
+	 */
+	bool OnInit() override;
 };
 
 

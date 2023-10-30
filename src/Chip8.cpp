@@ -247,6 +247,10 @@ bool Chip8::is_sounding() {
 	return _sounding;
 }
 
+bool Chip8::is_programmed() {
+	return _programmed;
+}
+
 
 uint16_t Chip8::get_hword(uint16_t addr) {
 	return (_mem[addr] << 8) + _mem[addr + 1];
