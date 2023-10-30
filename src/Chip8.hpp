@@ -85,6 +85,8 @@ public:
 	 * @brief Loads in the passed program and initializes the VM to run from its
 	 * start.
 	 * 
+	 * Blocks if any blocking operating is being used by another thread.
+	 * 
 	 * @param program A string that contains the program to be loaded. The
 	 * contents of the steam are assumed to be in "compiled" Chip-8 byte code,
 	 * each instruction being two bytes with nothing in between each.
@@ -94,12 +96,16 @@ public:
 	/**
 	 * @brief Obtain the current state of the VM.
 	 * 
+	 * Blocks if any blocking operating is being used by another thread.
+	 * 
 	 * @return A string containing the state of the VM.
 	 */
 	Chip8SaveState get_state();
 
 	/**
 	 * @brief Loads in the passed state into the VM to be resumed.
+	 * 
+	 * Blocks if any blocking operating is being used by another thread.
 	 * 
 	 * @param source A reference to a string containing the VM state to be
 	 * loaded.
@@ -124,6 +130,8 @@ public:
 	/**
 	 * @brief Run the emulator for the specified duration.
 	 * 
+	 * Blocks if any blocking operating is being used by another thread.
+	 * 
 	 * @param elapsed_time The number of miliseconds to run the emulation
 	 * forward.
 	 */
@@ -137,6 +145,8 @@ public:
 	/**
 	 * @brief Set the emulation instruction cycle frequency.
 	 * 
+	 * Blocks if any blocking operating is being used by another thread.
+	 * 
 	 * @param value The new frequency in Hz.
 	 */
 	void frequency(uint16_t value);
@@ -144,7 +154,12 @@ public:
 	/**
 	 * @brief Call to indicated the passed key was just pressed.
 	 * 
+	 * Blocks if any blocking operating is being used by another thread.
+	 * 
 	 * @param key The value of the key that was just pressed.
+	 * 
+	 * @throws std::domain_error("Key value too large.") if the specifed value
+	 * is greater than 15.
 	 */
 	void key_pressed(uint8_t key);
 
@@ -156,7 +171,8 @@ protected:
 	Chip8Display*	_display;	// Handles output (screen).
 	Chip8Sound*		_speaker;	// Handles output (sound).
 	Chip8Message*	_error;		// Received error notifications.
-	uint16_t	_freq;			// Instruction cycle frequency (default 500Hz).
+	uint16_t		_freq;		// Instruction cycle frequency (default 500Hz).
+	std::mutex	_access_lock;	// Protects asynchronous access.
 	
 	// VM font memory offset.
 	static constexpr uint16_t FONT_OFF {24};
@@ -213,8 +229,7 @@ protected:
 	 */
 	void set_hword(uint16_t addr, uint16_t hword);
 
-// public: TODO: Remove if no issue with protecting the instructions arises.
-	/* Instruction Implementing Methods ========================================
+/* Instruction Implementing Methods ============================================
 	 * Each instruction description below begins with its CHIP-8 opcode. Legend:
 	 *		N = A hexadecimal digit.
 	 *		vX = A register where X is a hexadecimal digit.

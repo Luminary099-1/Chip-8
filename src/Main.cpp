@@ -199,8 +199,8 @@ void MainFrame::on_key_down(wxKeyEvent& event) {
 	// Set the key in the map if it is valid.
 	try {
 		uint8_t key = key_map.at(event.GetUnicodeKey());
-		_key_states[key] = true;
 		_vm->key_pressed(key);
+		_key_states[key] = true;
 	} catch (std::out_of_range& e) {
 		return;
 	}
@@ -229,9 +229,8 @@ void MainFrame::on_open(wxCommandEvent& event) {
 }
 
 
+// FIXME: Save/load not working.
 void MainFrame::on_save(wxCommandEvent& event) {
-	bool was_running = _running;
-	stop_vm();
 	Chip8SaveState state = _vm->get_state();
 
 	// Construct a dialog to select the file path to open.
@@ -248,11 +247,10 @@ void MainFrame::on_save(wxCommandEvent& event) {
 		state_file .write((char*) &state, sizeof(state));
 		state_file.close();
 	}
-	
-	if (was_running) start_vm();
 }
 
 
+// FIXME: Save/load not working.
 void MainFrame::on_load(wxCommandEvent& event) {
 	stop_vm();
 
@@ -295,18 +293,13 @@ void MainFrame::on_stop(wxCommandEvent& event) {
 
 
 void MainFrame::on_set_freq(wxCommandEvent& event) {
-	bool was_running = _running;
-	stop_vm();
-
 	// Construct a dialog to select the desired frequency,
-	wxNumberEntryDialog freqDialog(this, "Set Emulation Frequency", "", "",
-		_vm->frequency(), 1, 10000);
+	wxNumberEntryDialog freqDialog(
+		this, "Set Emulation Frequency", "", "", _vm->frequency(), 1, 10000);
 
 	// If the user accepts, set the frequency.
 	if (freqDialog.ShowModal() != wxID_CANCEL)
 		_vm->frequency((uint16_t) freqDialog.GetValue());
-
-	if (was_running) start_vm();
 }
 
 

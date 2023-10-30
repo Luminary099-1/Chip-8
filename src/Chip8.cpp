@@ -94,6 +94,7 @@ Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 
 
 void Chip8::load_program(std::string& program) {
+	_access_lock.lock();
 	// Verify the program isn't odd or too large.
 	if (program.size() > _Max_Prog_Size)
 		throw std::invalid_argument("Program is too large.");
@@ -117,17 +118,23 @@ void Chip8::load_program(std::string& program) {
 	_programmed = true;
 	_key_wait = false;
 	_sounding = false;
+
+	_access_lock.unlock();
 }
 
 
 Chip8SaveState Chip8::get_state() {
+	_access_lock.lock();
 	Chip8SaveState state {static_cast<Chip8SaveState>(*this)};
+	_access_lock.unlock();
 	return state;
 }
 
 
 void Chip8::set_state(Chip8SaveState& source) {
+	_access_lock.lock();
 	memcpy(static_cast<Chip8SaveState*>(this), &source, sizeof(Chip8SaveState));
+	_access_lock.unlock();
 }
 
 
@@ -188,12 +195,14 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 
 
 void Chip8::run(_TimeType elapsed_time) {
+	_access_lock.lock();
 	_TimeType cycle_period {1000U / _freq};
 	_time_budget += elapsed_time;
 	_TimeType cycles {_time_budget / cycle_period.count()};
 	for (int64_t i {0}; i < cycles.count(); ++i)
 		execute_cycle(cycle_period);
 	_time_budget -= cycles * cycle_period.count();
+	_access_lock.unlock();
 }
 
 
@@ -234,7 +243,9 @@ uint16_t Chip8::frequency() {
 
 
 void Chip8::frequency(uint16_t value) {
+	_access_lock.lock();
 	_freq = value;
+	_access_lock.unlock();
 }
 
 
@@ -264,11 +275,13 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword) {
 
 
 void Chip8::key_pressed(uint8_t key) {
-	if (!_key_wait) return;
 	if (key > 0xf) throw new std::domain_error("Key value too large.");
+	if (!_key_wait) return;
+	_access_lock.lock();
 	uint16_t instruction = get_hword(_pc - 2);
 	uint8_t x = INSTR_B;
 	_gprf[x] = key;
+	_access_lock.unlock();
 }
 
 // Instruction Implementing Methods ============================================
