@@ -238,6 +238,44 @@ protected:
 	 */
 	void set_hword(uint16_t addr, uint16_t hword);
 
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the first half-byte of the passed instruction. 
+	 */
+	static constexpr uint8_t instr_a(uint16_t instruction);
+
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the second half-byte of the passed instruction. 
+	 */
+	static constexpr uint8_t instr_b(uint16_t instruction);
+
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the third half-byte of the passed instruction. 
+	 */
+	static constexpr uint8_t instr_c(uint16_t instruction);
+
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the fourth half-byte of the passed instruction. 
+	 */
+	static constexpr uint8_t instr_d(uint16_t instruction);
+
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the address encoded in the last 3 half-bytes of the
+	 * passed instruction.
+	 */
+	static constexpr uint16_t instr_addr(uint16_t instruction);
+
+	/**
+	 * @param instruction A two-byt e Chip8 instruction.
+	 * @return Returns the immediate value encoded in the second byte of the
+	 * passed instruction.
+	 */
+	static constexpr uint8_t instr_imm(uint16_t instruction);
+
 /* Instruction Implementing Methods ============================================
 	 * Each instruction description below begins with its CHIP-8 opcode. Legend:
 	 *		N = A hexadecimal digit.
@@ -251,138 +289,138 @@ protected:
 	 * this is ignored by this emulation.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_sys(Chip8& vm, uint16_t instruction);
+	static void in_sys(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (00E0) Clears the screen to blank; 0,
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_clr(Chip8& vm, uint16_t instruction);
+	static void in_clr(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (00EE) Return control from a subroutine.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_rts(Chip8& vm, uint16_t instruction);
+	static void in_rts(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (1NNN) Unconditional branch to the instruction at address NNNN.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_jump(Chip8& vm, uint16_t instruction);
+	static void in_jump(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (2NNN) Execute the subroutine that begins at address NNN.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 * called.
 	 */
-	static void in_call(Chip8& vm, uint16_t instruction);
+	static void in_call(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (3XNN) Skip the following instruction if the value of vX equals
 	 * NN.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_ske(Chip8& vm, uint16_t instruction);
+	static void in_ske(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (4XNN) Skip the following instruction if the value of vX does not
 	 * equal NN.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_skne(Chip8& vm, uint16_t instruction);
+	static void in_skne(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (5XY0) Skip the following instruction if the value of vX equals
 	 * the value of vY.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_skre(Chip8& vm, uint16_t instruction);
+	static void in_skre(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (6XNN) Load the value NN into vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_load(Chip8& vm, uint16_t instruction);
+	static void in_load(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (7XNN) Add the value NN to vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_add(Chip8& vm, uint16_t instruction);
+	static void in_add(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY0) Copy the value of vY into vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_move(Chip8& vm, uint16_t instruction);
+	static void in_move(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY1) Set the value of vX to the bitwise disjunction of itself
 	 * and vY.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_or(Chip8& vm, uint16_t instruction);
+	static void in_or(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY2) Set the value of vX to the bitwise conjunction of itself
 	 * and vY.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_and(Chip8& vm, uint16_t instruction);
+	static void in_and(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY3) Set the value of vX to the bitwise exclusive disjunction of
 	 * itself and vY.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_xor(Chip8& vm, uint16_t instruction);
+	static void in_xor(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY4) Add the value of vY to vX. The value of vF will be set to
 	 * 0x01 if an overflow occurs or 0x00 otherwise.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_addr(Chip8& vm, uint16_t instruction);
+	static void in_addr(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY5) Subtract the value of the vY from vX. The value of vF will
 	 * be set to 0x01 if an underflow occurs or 0x00 otherwise.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_sub(Chip8& vm, uint16_t instruction);
+	static void in_sub(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY6) Stores the value of the 1 bit logical shift right of vY in
@@ -390,18 +428,18 @@ protected:
 	 * applied and vY is unchanged.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_shr(Chip8& vm, uint16_t instruction);
+	static void in_shr(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XY7) Store value of vF minus vX in vX. The value of vF will
 	 * be set to 0x01 if an underflow occurs or 0x00 otherwise.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_suba(Chip8& vm, uint16_t instruction);
+	static void in_suba(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (8XYE) Stores the value of the 1 bit logical shift left of vY in
@@ -409,42 +447,42 @@ protected:
 	 * applied and vY is unchanged.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_shl(Chip8& vm, uint16_t instruction);
+	static void in_shl(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (9XY0) Skip the following instruction if the value of vX does not
 	 * equal the value of vY.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_skrne(Chip8& vm, uint16_t instruction);
+	static void in_skrne(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (ANNN) Store the value at address NNN in I.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_loadi(Chip8& vm, uint16_t instruction);
+	static void in_loadi(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (BNNN) Unconditional branch to the address NNN + v0.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_jumpi(Chip8& vm, uint16_t instruction);
+	static void in_jumpi(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (CXNN) Set vX to a random value using the mask NN.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_rand(Chip8& vm, uint16_t instruction);
+	static void in_rand(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (DXYN) Draw a sprite onto the screen at the position (vX, vY)
@@ -453,86 +491,86 @@ protected:
 	 * otherwise.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_draw(Chip8& vm, uint16_t instruction);
+	static void in_draw(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (EX9E) Skip the following instruction if the key corresponding to
 	 * the hex value stored in vX is pressed.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_skpr(Chip8& vm, uint16_t instruction);
+	static void in_skpr(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (EXA1) Skip the following instruction if the key corresponding to
 	 * the hex value stored in vX is not pressed.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_skup(Chip8& vm, uint16_t instruction);
+	static void in_skup(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX07) Store the value of the delay timer in vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_moved(Chip8& vm, uint16_t instruction);
+	static void in_moved(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX0A) Wait for a keypress and store the value of the pressed key
 	 * in vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_keyd(Chip8& vm, uint16_t instruction);
+	static void in_keyd(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX15) Set the delay timer to the value of vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_loadd(Chip8& vm, uint16_t instruction);
+	static void in_loadd(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX18) Set the sound timer to the value of vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_loads(Chip8& vm, uint16_t instruction);
+	static void in_loads(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX1E) Add the value of vX to I.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_addi(Chip8& vm, uint16_t instruction);
+	static void in_addi(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX29) Set I to the address of the sprite data that corresponds to
 	 * the digit stored in vX.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_ldspr(Chip8& vm, uint16_t instruction);
+	static void in_ldspr(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX33) Stores the BCD equivalent of the value of vX in memory at
 	 * addresses I, I + 1, and I + 2.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_bcd(Chip8& vm, uint16_t instruction);
+	static void in_bcd(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX55) Stores the values of v0 to vX in memory, starting at the
@@ -540,9 +578,9 @@ protected:
 	 * complete.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_stor(Chip8& vm, uint16_t instruction);
+	static void in_stor(Chip8& vm, uint16_t instr);
 
 	/**
 	 * @brief (FX65) Fill the registers v0 to vX with values in memory, starting
@@ -550,7 +588,7 @@ protected:
 	 * is complete.
 	 * 
 	 * @param vm Chip8 reference on which to apply the instruction.
-	 * @param instruction The instruction being executed.
+	 * @param instr The instruction being executed.
 	 */
-	static void in_read(Chip8& vm, uint16_t instruction);
+	static void in_read(Chip8& vm, uint16_t instr);
 };

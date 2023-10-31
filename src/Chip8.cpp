@@ -5,13 +5,35 @@
 #include <sstream>
 #include <stdexcept>
 
-// Macros for accessing specific parts of instructions.
-#define INSTR_A ((instruction & 0xf000) >> 12)
-#define INSTR_B ((instruction & 0x0f00) >> 8)
-#define INSTR_C ((instruction & 0x00f0) >> 4)
-#define INSTR_D (instruction & 0x000f)
-#define INSTR_ADDR (instruction & 0x0fff)
-#define INSTR_IMM (instruction & 0x00ff)
+
+constexpr uint8_t Chip8::instr_a(uint16_t instruction) {
+	return (instruction & 0xf000U) >> 12;
+}
+
+
+constexpr uint8_t Chip8::instr_b(uint16_t instruction) {
+	return (instruction & 0x0f00U) >> 8;
+}
+
+
+constexpr uint8_t Chip8::instr_c(uint16_t instruction) {
+	return (instruction & 0x00f0U) >> 4;
+}
+
+
+constexpr uint8_t Chip8::instr_d(uint16_t instruction) {
+	return instruction & 0x000fU;
+}
+
+
+constexpr uint16_t Chip8::instr_addr(uint16_t instruction) {
+	return instruction & 0x0fffU;
+}
+
+
+constexpr uint8_t Chip8::instr_imm(uint16_t instruction) {
+	return instruction & 0x00ffU;
+}
 
 
 Chip8SaveState::Chip8SaveState() {}
@@ -141,10 +163,10 @@ void Chip8::set_state(Chip8SaveState& source) {
 
 Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	// Grab the halfwords of the instruction.
-	uint8_t a = INSTR_A;
-	uint8_t b = INSTR_B;
-	uint8_t c = INSTR_C;
-	uint8_t d = INSTR_D;
+	uint8_t a = instr_a(instruction);
+	uint8_t b = instr_b(instruction);
+	uint8_t c = instr_c(instruction);
+	uint8_t d = instr_d(instruction);
 	_InstrFunc func;
 	
 	try { // Use the instruction to determine which map to search.
@@ -187,7 +209,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	}
 	// Ensure functions with addresses are valid.
 	if (func == in_sys || func == in_jump || func == in_call) {
-		uint16_t addr = INSTR_ADDR;
+		uint16_t addr = instr_addr(instruction);
 		if (addr < _Prog_Start || addr > _Prog_End)
 			std::out_of_range("Illegal VM memory operation.");
 	}
@@ -280,7 +302,7 @@ void Chip8::key_pressed(uint8_t key) {
 	if (!_key_wait) return;
 	_access_lock.lock();
 	uint16_t instruction = get_hword(_pc - 2);
-	uint8_t x = INSTR_B;
+	uint8_t x = instr_b(instruction);
 	_gprf[x] = key;
 	_access_lock.unlock();
 }
@@ -292,158 +314,174 @@ uint64_t* Chip8::get_screen_buf() {
 
 
 // Instruction Implementing Methods ============================================
-void Chip8::in_sys(Chip8& vm, uint16_t instruction) { // 0NNN
+void Chip8::in_sys(Chip8& vm, uint16_t instr) { // 0NNN
 	// Originally called machine code instruction, does nothing here.
 }
 
 
-void Chip8::in_clr(Chip8& vm, uint16_t instruction) { // 00E0
+void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
 	memset(vm._screen, 0, sizeof(vm._screen));
 	vm._display->draw();
 }
 
 
-void Chip8::in_rts(Chip8& vm, uint16_t instruction) { // 00EE
-	if (vm._sp == 0)
-		throw Chip8Error("VM stack underflow.");
+void Chip8::in_rts(Chip8& vm, uint16_t instr) { // 00EE
+	if (vm._sp == 0) throw Chip8Error("VM stack underflow.");
 	vm._pc = vm.get_hword(vm._sp);
 	vm._sp -= 2;
 }
 
 
-void Chip8::in_jump(Chip8& vm, uint16_t instruction) { // 1NNN
-	vm._index = INSTR_ADDR;
+void Chip8::in_jump(Chip8& vm, uint16_t instr) { // 1NNN
+	vm._index = instr_addr(instr);
 }
 
 
-void Chip8::in_call(Chip8& vm, uint16_t instruction) { // 2NNN
-	if (vm._sp == FONT_OFF - 1)
-		throw Chip8Error("VM stack overflow.");
+void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
+	if (vm._sp == FONT_OFF - 1) throw Chip8Error("VM stack overflow.");
 	vm._sp += 2;
 	vm.set_hword(vm._sp, vm._pc);
-	vm._pc = INSTR_ADDR;
+	vm._pc = instr_addr(instr);
 }
 
 
-void Chip8::in_ske(Chip8& vm, uint16_t instruction) { // 3XNN
-	if (vm._gprf[INSTR_B] == INSTR_IMM) vm._pc += 2;
+void Chip8::in_ske(Chip8& vm, uint16_t instr) { // 3XNN
+	if (vm._gprf[instr_b(instr)] == instr_imm(instr)) vm._pc += 2;
 }
 
 
-void Chip8::in_skne(Chip8& vm, uint16_t instruction) { // 4XNN
-	if (vm._gprf[INSTR_B] != INSTR_IMM) vm._pc += 2;
+void Chip8::in_skne(Chip8& vm, uint16_t instr) { // 4XNN
+	if (vm._gprf[instr_b(instr)] != instr_imm(instr)) vm._pc += 2;
 }
 
 
-void Chip8::in_skre(Chip8& vm, uint16_t instruction) { // 5XY0
-	if (vm._gprf[INSTR_B] == vm._gprf[INSTR_C]) vm._pc += 2;
+void Chip8::in_skre(Chip8& vm, uint16_t instr) { // 5XY0
+	if (vm._gprf[instr_b(instr)] == vm._gprf[instr_c(instr)]) vm._pc += 2;
 }
 
 
-void Chip8::in_load(Chip8& vm, uint16_t instruction) { // 6XNN
-	vm._gprf[INSTR_B] = INSTR_IMM;
+void Chip8::in_load(Chip8& vm, uint16_t instr) { // 6XNN
+	vm._gprf[instr_b(instr)] = instr_imm(instr);
 }
 
 
-void Chip8::in_add(Chip8& vm, uint16_t instruction) { // 7XNN
-	vm._gprf[INSTR_B] += INSTR_IMM;
+void Chip8::in_add(Chip8& vm, uint16_t instr) { // 7XNN
+	vm._gprf[instr_b(instr)] += instr_imm(instr);
 }
 
 
-void Chip8::in_move(Chip8& vm, uint16_t instruction) { // 8XY0
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_C];
+void Chip8::in_move(Chip8& vm, uint16_t instr) { // 8XY0
+	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)];
 }
 
 
-void Chip8::in_or(Chip8& vm, uint16_t instruction) { // 8XY1
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_B] | vm._gprf[INSTR_C];
+void Chip8::in_or(Chip8& vm, uint16_t instr) { // 8XY1
+	vm._gprf[instr_b(instr)]
+		= vm._gprf[instr_b(instr)] | vm._gprf[instr_c(instr)];
 }
 
 
-void Chip8::in_and(Chip8& vm, uint16_t instruction) { // 8XY2
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_B] & vm._gprf[INSTR_C];
+void Chip8::in_and(Chip8& vm, uint16_t instr) { // 8XY2
+	vm._gprf[instr_b(instr)]
+		= vm._gprf[instr_b(instr)] & vm._gprf[instr_c(instr)];
 }
 
 
-void Chip8::in_xor(Chip8& vm, uint16_t instruction) { // 8XY3
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_B] ^ vm._gprf[INSTR_C];
+void Chip8::in_xor(Chip8& vm, uint16_t instr) { // 8XY3
+	vm._gprf[instr_b(instr)]
+		= vm._gprf[instr_b(instr)] ^ vm._gprf[instr_c(instr)];
 }
 
 
-void Chip8::in_addr(Chip8& vm, uint16_t instruction) { // 8XY4
-	if ((int16_t) vm._gprf[INSTR_B] + (int16_t) vm._gprf[INSTR_C] > UINT8_MAX)
-		vm._gprf[0xf] = 0x01;
+void Chip8::in_addr(Chip8& vm, uint16_t instr) { // 8XY4
+	uint8_t c {vm._gprf[instr_c(instr)]};
+	uint16_t sum { static_cast<uint16_t>(vm._gprf[instr_b(instr)] + c) };
+
+	if (sum > UINT8_MAX) vm._gprf[0xf] = 0x01;
 	else vm._gprf[0xf] = 0x00;
-	vm._gprf[INSTR_B] += vm._gprf[INSTR_C];
+
+	vm._gprf[instr_b(instr)] += c;
 }
 
 
-void Chip8::in_sub(Chip8& vm, uint16_t instruction) { // 8XY5
-	if ((int8_t) vm._gprf[INSTR_B] - (int8_t) vm._gprf[INSTR_C] < 0)
-		vm._gprf[0xf] = 0x01;
+void Chip8::in_sub(Chip8& vm, uint16_t instr) { // 8XY5
+	uint8_t c {vm._gprf[instr_c(instr)]};
+	int8_t difference { static_cast<int8_t>(vm._gprf[instr_b(instr)])
+		- static_cast<int8_t>(c) };
+
+	if (difference < 0) vm._gprf[0xf] = 0x01;
 	else vm._gprf[0xf] = 0x00;
-	vm._gprf[INSTR_B] -= vm._gprf[INSTR_C];
+
+	vm._gprf[instr_b(instr)] -= c;
 }
 
 
-void Chip8::in_shr(Chip8& vm, uint16_t instruction) { // 8XY6
-	vm._gprf[0xf] = vm._gprf[INSTR_C] & 0x01;
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_C] >> 1;
+void Chip8::in_shr(Chip8& vm, uint16_t instr) { // 8XY6
+	vm._gprf[0xf] = vm._gprf[instr_c(instr)] & 0x01;
+	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)] >> 1;
 }
 
 
-void Chip8::in_suba(Chip8& vm, uint16_t instruction) { // 8XY7
-	if ((int8_t) vm._gprf[INSTR_C] - (int8_t) vm._gprf[INSTR_B] < 0)
-		vm._gprf[0xf] = 0x01;
+void Chip8::in_suba(Chip8& vm, uint16_t instr) { // 8XY7
+	uint8_t b {vm._gprf[instr_b(instr)]};
+	int8_t difference { static_cast<int8_t>(vm._gprf[instr_c(instr)])
+		- static_cast<int8_t>(b) };
+
+	if (difference < 0) vm._gprf[0xf] = 0x01;
 	else vm._gprf[0xf] = 0x00;
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_C] - vm._gprf[INSTR_B];
+
+	vm._gprf[instr_b(instr)]
+		= vm._gprf[instr_c(instr)] - b;
 }
 
 
-void Chip8::in_shl(Chip8& vm, uint16_t instruction) { // 8XYE
-	vm._gprf[0xf] = (vm._gprf[INSTR_C] & 0x80) >> 7;
-	vm._gprf[INSTR_B] = vm._gprf[INSTR_C] << 1;
+void Chip8::in_shl(Chip8& vm, uint16_t instr) { // 8XYE
+	vm._gprf[0xf] = (vm._gprf[instr_c(instr)] & 0x80) >> 7;
+	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)] << 1;
 }
 
 
-void Chip8::in_skrne(Chip8& vm, uint16_t instruction) { // 9XY0
-	if (vm._gprf[INSTR_B] != vm._gprf[INSTR_C]) vm._pc += 2;
+void Chip8::in_skrne(Chip8& vm, uint16_t instr) { // 9XY0
+	if (vm._gprf[instr_b(instr)] != vm._gprf[instr_c(instr)]) vm._pc += 2;
 }
 
 
-void Chip8::in_loadi(Chip8& vm, uint16_t instruction) { // ANNN
-	vm._index = INSTR_ADDR;
+void Chip8::in_loadi(Chip8& vm, uint16_t instr) { // ANNN
+	vm._index = instr_addr(instr);
 }
 
 
-void Chip8::in_jumpi(Chip8& vm, uint16_t instruction) { // BNNN
-	uint16_t addr = vm._gprf[0] + INSTR_ADDR;
+void Chip8::in_jumpi(Chip8& vm, uint16_t instr) { // BNNN
+	uint16_t addr { static_cast<uint16_t>(vm._gprf[0] + instr_addr(instr)) };
 	if (addr < _Prog_Start || _Prog_End > _Prog_End)
 		Chip8Error("Illegal VM memory operation.");
 	vm._pc = addr;
 }
 
 
-void Chip8::in_rand(Chip8& vm, uint16_t instruction) { // CXNN
-	vm._gprf[INSTR_B] = (rand() % 256) & INSTR_IMM;
+void Chip8::in_rand(Chip8& vm, uint16_t instr) { // CXNN
+	vm._gprf[instr_b(instr)] = (rand() % 256) & instr_imm(instr);
 }
 
 
 // TODO: Consider trying to simplify this function.
-void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
+void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 	vm._gprf[0x0f] = 0x00; // Initialize the overwite flag to 0.
 	// Grab the sprite coordinates.
-	uint8_t xpos {vm._gprf[INSTR_B]};
- 	uint8_t ypos {vm._gprf[INSTR_C]};
+	uint8_t xpos { vm._gprf[instr_b(instr)] };
+ 	uint8_t ypos { vm._gprf[instr_c(instr)] };
+ 
+	uint8_t y_max  { std::min(instr_d(instr), static_cast<uint8_t>(32)) };
+
 	// Iterate over each line of the sprite.
-	for (uint8_t y {0}; y < std::min(INSTR_D, 32); ++y) {
+	for (uint8_t y {0}; y < y_max; ++y) {
 		// Grab the line from the sprite and shift it to its x position.
 		if (vm._index + y < _Prog_Start || vm._index + y > _Prog_End)
 			Chip8Error("Illegal VM memory operation.");
-		uint64_t spr_line
-			= static_cast<uint64_t>(vm._mem[vm._index + y]) << (56 - xpos);
+		uint64_t spr_line {
+			static_cast<uint64_t>(vm._mem[vm._index + y]) << (56 - xpos) };
 		// Determine the new screen line.
-		uint64_t new_line = vm._screen[ypos + y] ^ spr_line;
+		uint64_t new_line {vm._screen[ypos + y] ^ spr_line};
 		// Set the flag if an overrite happened.
 		if (vm._screen[ypos + y] & ~new_line != 0x0) vm._gprf[0x0f] = 0x01;
 		// Update the screen memory with the new line.
@@ -453,51 +491,51 @@ void Chip8::in_draw(Chip8& vm, uint16_t instruction) { // DXYN
 }
 
 
-void Chip8::in_skpr(Chip8& vm, uint16_t instruction) { // EX9E
-	if (vm._keyboard->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+void Chip8::in_skpr(Chip8& vm, uint16_t instr) { // EX9E
+	if (vm._keyboard->test_key(vm._gprf[instr_b(instr)])) vm._pc += 2;
 }
 
 
-void Chip8::in_skup(Chip8& vm, uint16_t instruction) { // EXA1
-	if (!vm._keyboard->test_key(vm._gprf[INSTR_B])) vm._pc += 2;
+void Chip8::in_skup(Chip8& vm, uint16_t instr) { // EXA1
+	if (!vm._keyboard->test_key(vm._gprf[instr_b(instr)])) vm._pc += 2;
 }
 
 
-void Chip8::in_moved(Chip8& vm, uint16_t instruction) { // FX07
-	vm._gprf[INSTR_B] = vm._delay;
+void Chip8::in_moved(Chip8& vm, uint16_t instr) { // FX07
+	vm._gprf[instr_b(instr)] = vm._delay;
 }
 
 
-void Chip8::in_keyd(Chip8& vm, uint16_t instruction) { // FX0A
+void Chip8::in_keyd(Chip8& vm, uint16_t instr) { // FX0A
 	vm._key_wait = true;
 }
 
 
-void Chip8::in_loadd(Chip8& vm, uint16_t instruction) { // FX15
-	vm._delay = vm._gprf[INSTR_B];
+void Chip8::in_loadd(Chip8& vm, uint16_t instr) { // FX15
+	vm._delay = vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_loads(Chip8& vm, uint16_t instruction) { // FX18
-	vm._sound = vm._gprf[INSTR_B];
+void Chip8::in_loads(Chip8& vm, uint16_t instr) { // FX18
+	vm._sound = vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_addi(Chip8& vm, uint16_t instruction) { // FX1E
-	vm._index += vm._gprf[INSTR_B];
+void Chip8::in_addi(Chip8& vm, uint16_t instr) { // FX1E
+	vm._index += vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_ldspr(Chip8& vm, uint16_t instruction) { // FX29
-	vm._index = FONT_OFF + vm._gprf[INSTR_B];
+void Chip8::in_ldspr(Chip8& vm, uint16_t instr) { // FX29
+	vm._index = FONT_OFF + vm._gprf[instr_b(instr)];
 }
 
 
 // Makes use of the Double Dabble algorithm.
-void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
+void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 	// Grab the initial value from the register.
-	uint32_t scratch = vm._gprf[INSTR_B];
-	for (size_t i = 0; i < 8; i ++) {
+	uint32_t scratch {vm._gprf[instr_b(instr)]};
+	for (size_t i {0}; i < 8; i ++) {
 		scratch = scratch << 1; // Shift in each bit of the value.
 		// Add 3 to each digit if greater than 4.
 		if (scratch & 0xf00 > 0x400) scratch += 0x300;
@@ -514,8 +552,8 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instruction) { // FX33
 }
 
 
-void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
-	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
+void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
+	for (uint32_t i {0}; i < vm._gprf[instr_b(instr)]; i ++) {
 		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
 			throw Chip8Error("Illegal VM memory operation.");
 		vm._mem[vm._index + i] = vm._gprf[i];
@@ -523,8 +561,8 @@ void Chip8::in_stor(Chip8& vm, uint16_t instruction) { // FX55
 }
 
 
-void Chip8::in_read(Chip8& vm, uint16_t instruction) { // FX65
-	for (uint32_t i = 0; i < vm._gprf[INSTR_B]; i ++) {
+void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
+	for (uint32_t i {0}; i < vm._gprf[instr_b(instr)]; i ++) {
 		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
 			throw Chip8Error("Illegal VM memory operation.");
 		vm._gprf[i] = vm._mem[vm._index + i];
