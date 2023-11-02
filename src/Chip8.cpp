@@ -254,9 +254,9 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 		_speaker->start_sound();
 		_sounding = true;
 	}
-	// Increment the program counter if the instruction was not a jump.
-	if (instr_func != in_rts && instr_func != in_jump
-		&& instr_func != in_call && instr_func != in_jumpi) _pc += 2;
+	// Increment the program counter if the instruction was not a jump or call.
+	if (instr_func != in_jump && instr_func != in_jumpi
+		&& instr_func != in_call) _pc += 2;
 }
 
 
@@ -326,21 +326,21 @@ void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
 
 
 void Chip8::in_rts(Chip8& vm, uint16_t instr) { // 00EE
-	if (vm._sp == 0) throw Chip8Error("VM stack underflow.");
-	vm._pc = vm.get_hword(vm._sp);
+	if (vm._sp == 0) throw Chip8Error("VM call stack underflow.");
 	vm._sp -= 2;
+	vm._pc = vm.get_hword(vm._sp);
 }
 
 
 void Chip8::in_jump(Chip8& vm, uint16_t instr) { // 1NNN
-	vm._index = instr_addr(instr);
+	vm._pc = instr_addr(instr);
 }
 
 
 void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
-	if (vm._sp == FONT_OFF - 1) throw Chip8Error("VM stack overflow.");
-	vm._sp += 2;
+	if (vm._sp == FONT_OFF) throw Chip8Error("VM call stack overflow.");
 	vm.set_hword(vm._sp, vm._pc);
+	vm._sp += 2;
 	vm._pc = instr_addr(instr);
 }
 
@@ -467,19 +467,21 @@ void Chip8::in_rand(Chip8& vm, uint16_t instr) { // CXNN
 // TODO: Consider trying to simplify this function.
 void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 	vm._gprf[0x0f] = 0x00; // Initialize the overwite flag to 0.
-	// Grab the sprite coordinates.
+	// Grab the sprite coordinates, number of lines to draw, and the x shift..
 	uint8_t xpos { vm._gprf[instr_b(instr)] };
  	uint8_t ypos { vm._gprf[instr_c(instr)] };
- 
 	uint8_t y_max  { std::min(instr_d(instr), static_cast<uint8_t>(32)) };
+	if (vm._index  < _Prog_Start || vm._index + y_max > _Prog_End)
+		Chip8Error("Illegal VM memory operation.");
+	int x_shift {56 - xpos};
 
 	// Iterate over each line of the sprite.
 	for (uint8_t y {0}; y < y_max; ++y) {
-		// Grab the line from the sprite and shift it to its x position.
-		if (vm._index + y < _Prog_Start || vm._index + y > _Prog_End)
-			Chip8Error("Illegal VM memory operation.");
-		uint64_t spr_line {
-			static_cast<uint64_t>(vm._mem[vm._index + y]) << (56 - xpos) };
+		// Grab the row from the sprite.
+		uint64_t spr_line {static_cast<uint64_t>(vm._mem[vm._index + y])};
+		// Shift the sprite row left or right.
+		if (x_shift >= 0) spr_line = spr_line << x_shift;
+		else spr_line = spr_line >> (-1 * x_shift);
 		// Determine the new screen line.
 		uint64_t new_line {vm._screen[ypos + y] ^ spr_line};
 		// Set the flag if an overrite happened.
@@ -531,40 +533,55 @@ void Chip8::in_ldspr(Chip8& vm, uint16_t instr) { // FX29
 }
 
 
-// Makes use of the Double Dabble algorithm.
+// Employs the Double Dabble algorithm.
 void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
+	static constexpr uint32_t hundreds = 0xf0000U;
+	static constexpr uint32_t tens = 0xf000U;
+	static constexpr uint32_t ones = 0xf00U;
+
 	// Grab the initial value from the register.
 	uint32_t scratch {vm._gprf[instr_b(instr)]};
-	for (size_t i {0}; i < 8; i ++) {
+
+	for (size_t i {0}; i < 7; ++i) {
 		scratch = scratch << 1; // Shift in each bit of the value.
 		// Add 3 to each digit if greater than 4.
-		if (scratch & 0xf00 > 0x400) scratch += 0x300;
-		if (scratch & 0xf000 > 0x4000) scratch += 0x3000;
-		if (scratch & 0xf0000 > 0x40000) scratch += 0x30000;
+		if ((scratch & hundreds) > 0x40000)
+			scratch += 0x30000;
+		if ((scratch & tens) > 0x4000)
+			scratch += 0x3000;
+		if ((scratch & ones) > 0x400)
+			scratch += 0x300;
 	}
-	// Ensure the destination memory is valid.
+	
+	scratch = scratch << 1; // Make the last shift.
+
 	if (vm._index < _Prog_Start || vm._index + 2 > _Prog_End)
 		Chip8Error("Illegal VM memory operation.");
+
 	// Store each digit in memory.
-	vm._mem[vm._index] = (scratch & 0xf0000) >> 0xf;
-	vm._mem[vm._index + 1] = (scratch & 0xf000) >> 0xb;
-	vm._mem[vm._index + 2] = (scratch & 0xf00) >> 0x8;
+	vm._mem[vm._index] = (scratch & hundreds) >> 16;
+	vm._mem[vm._index + 1] = (scratch & tens) >> 12;
+	vm._mem[vm._index + 2] = (scratch & ones) >> 8;
 }
 
 
 void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
-	for (uint32_t i {0}; i < vm._gprf[instr_b(instr)]; i ++) {
-		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
-			throw Chip8Error("Illegal VM memory operation.");
-		vm._mem[vm._index + i] = vm._gprf[i];
-	}
+	uint8_t upper_bound = instr_b(instr);
+
+	if (vm._index < _Prog_Start || vm._index + upper_bound > _Prog_End)
+		throw Chip8Error("Illegal VM memory operation.");
+
+	for (uint32_t i {0}; i <= upper_bound; ++i)
+		vm._mem[vm._index ++] = vm._gprf[i];
 }
 
 
 void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
-	for (uint32_t i {0}; i < vm._gprf[instr_b(instr)]; i ++) {
-		if (vm._index + i < _Prog_Start || vm._index > _Prog_End)
-			throw Chip8Error("Illegal VM memory operation.");
-		vm._gprf[i] = vm._mem[vm._index + i];
-	}
+	uint8_t upper_bound = instr_b(instr);
+
+	if (vm._index < _Prog_Start || vm._index + upper_bound > _Prog_End)
+		throw Chip8Error("Illegal VM memory operation.");
+
+	for (uint32_t i {0}; i <= upper_bound; ++i)
+		vm._gprf[i] = vm._mem[vm._index ++];
 }
