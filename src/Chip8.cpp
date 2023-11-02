@@ -394,50 +394,49 @@ void Chip8::in_xor(Chip8& vm, uint16_t instr) { // 8XY3
 
 
 void Chip8::in_addr(Chip8& vm, uint16_t instr) { // 8XY4
+	uint8_t b {vm._gprf[instr_b(instr)]};
 	uint8_t c {vm._gprf[instr_c(instr)]};
-	uint16_t sum { static_cast<uint16_t>(vm._gprf[instr_b(instr)] + c) };
+	uint8_t sum {static_cast<uint8_t>(b + c)};
+	vm._gprf[instr_b(instr)] = sum;
 
-	if (sum > UINT8_MAX) vm._gprf[0xf] = 0x01;
+	if (sum < b) vm._gprf[0xf] = 0x01;
 	else vm._gprf[0xf] = 0x00;
-
-	vm._gprf[instr_b(instr)] += c;
 }
 
 
 void Chip8::in_sub(Chip8& vm, uint16_t instr) { // 8XY5
+	uint8_t b {vm._gprf[instr_b(instr)]};
 	uint8_t c {vm._gprf[instr_c(instr)]};
-	int8_t difference { static_cast<int8_t>(vm._gprf[instr_b(instr)])
-		- static_cast<int8_t>(c) };
+	uint8_t difference {static_cast<uint8_t>(b - c)};
+	vm._gprf[instr_b(instr)] = difference;
 
-	if (difference < 0) vm._gprf[0xf] = 0x01;
-	else vm._gprf[0xf] = 0x00;
-
-	vm._gprf[instr_b(instr)] -= c;
+	if (difference > b) vm._gprf[0xf] = 0x00;
+	else vm._gprf[0xf] = 0x01;
 }
 
 
 void Chip8::in_shr(Chip8& vm, uint16_t instr) { // 8XY6
-	vm._gprf[0xf] = vm._gprf[instr_c(instr)] & 0x01;
-	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)] >> 1;
+	uint8_t opY {vm._gprf[instr_c(instr)]};
+	vm._gprf[instr_b(instr)] = opY >> 1;
+	vm._gprf[0xf] = opY & 0x01;
 }
 
 
 void Chip8::in_suba(Chip8& vm, uint16_t instr) { // 8XY7
 	uint8_t b {vm._gprf[instr_b(instr)]};
-	int8_t difference { static_cast<int8_t>(vm._gprf[instr_c(instr)])
-		- static_cast<int8_t>(b) };
+	uint8_t c {vm._gprf[instr_c(instr)]};
+	uint8_t difference {static_cast<uint8_t>(c - b)};
+	vm._gprf[instr_b(instr)] = difference;
 
-	if (difference < 0) vm._gprf[0xf] = 0x01;
-	else vm._gprf[0xf] = 0x00;
-
-	vm._gprf[instr_b(instr)]
-		= vm._gprf[instr_c(instr)] - b;
+	if (difference > c) vm._gprf[0xf] = 0x00;
+	else vm._gprf[0xf] = 0x01;
 }
 
 
 void Chip8::in_shl(Chip8& vm, uint16_t instr) { // 8XYE
-	vm._gprf[0xf] = (vm._gprf[instr_c(instr)] & 0x80) >> 7;
-	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)] << 1;
+	uint8_t opY {vm._gprf[instr_c(instr)]};
+	vm._gprf[instr_b(instr)] = opY << 1;
+	vm._gprf[0xf] = (opY & 0x80) >> 7;
 }
 
 
