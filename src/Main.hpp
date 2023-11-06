@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <fstream>
 #include <thread>
 
 // For compilers that support precompilation, includes "wx/wx.h".
@@ -46,6 +47,11 @@ public:
 	 * @brief Destroy the Chip8ScreenPanel.
 	 */
 	~Chip8ScreenPanel();
+
+	/**
+	 * @return false to prevent this panel from accepting input focus.
+	 */
+	bool AcceptsFocus() const override { return false; }
 
 	/**
 	 * @brief Handles the paint events for the panel by having the image
@@ -249,6 +255,9 @@ private:
  */
 class Chip8CPP : public wxApp {
 	MainFrame* _frame;
+	std::ofstream _error_file;
+	std::streambuf* _old_error_buf;
+	
 public:
 	/**
 	 * @brief Creates the main application window + frame.
@@ -257,6 +266,11 @@ public:
 	 * closed from the UI.
 	 */
 	bool OnInit() override;
+
+	/**
+	 * @brief Performs cleanup operations just before the application exits.
+	 */
+	int OnExit() override;
 };
 
 

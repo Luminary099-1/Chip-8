@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Chip8Observers.hpp"
-
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -15,7 +14,9 @@
 class Chip8SaveState {
 public:
 	// Type of std::chrono::duration to store the duration of execution.
-	typedef std::chrono::milliseconds _TimeType;
+	typedef std::chrono::nanoseconds _TimeType;
+	// The number of nanoseconds in a second.
+	static constexpr long long _billion = 1000000000U;
 	// The size of the Chip-8 VM's memory in bytes.
 	static constexpr uint16_t _Mem_Size = 4096;
 	// Default constructor.
@@ -150,9 +151,8 @@ public:
 	void frequency(uint16_t value);
 
 	/**
-	 * @brief Call to indicated the passed key was just pressed.
-	 * 
-	 * Blocks if any blocking operating is being used by another thread.
+	 * @brief Call to indicated the passed key was just pressed. A corresponding
+	 * call to key_released must be made after  every call to this function.
 	 * 
 	 * @param key The value of the key that was just pressed.
 	 * 
@@ -160,6 +160,17 @@ public:
 	 * is greater than 15.
 	 */
 	void key_pressed(uint8_t key);
+
+
+	/**
+	 * @brief Indicates the specified key has been released.
+	 * 
+	 * @param key The value of the key that was just released.
+	 * 
+	 * @throws std::domain_error("Key value too large.") if the specifed value
+	 * is greater than 15.
+	 */
+	void key_released(uint8_t key);
 
 	/**
 	 * @brief Provides access to the VM's screen buffer for drawing.
@@ -182,6 +193,7 @@ protected:
 	Chip8Message*	_error;		// Received error notifications.
 	uint16_t		_freq;		// Instruction cycle frequency (default 500Hz).
 	std::mutex	_access_lock;	// Protects asynchronous access.
+	uint8_t		_pressed_key;	// The key value waiting to be released.
 	
 	// VM font memory offset.
 	static constexpr uint16_t FONT_OFF {24};

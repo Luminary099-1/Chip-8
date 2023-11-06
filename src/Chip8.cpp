@@ -110,9 +110,10 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 	Chip8Sound* snd, Chip8Message* msg)
 	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
-	_freq = 500;
+	_freq = 1200;
 	_programmed = false;
 	_display->_vm = this;
+	_pressed_key = 0x10; // An invalid key value sentinel.
 }
 
 
@@ -219,18 +220,19 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 
 void Chip8::run(_TimeType elapsed_time) {
 	_access_lock.lock();
-	_TimeType cycle_period {1000U / _freq};
+	_TimeType cycle_period {_billion / _freq};
 	_time_budget += elapsed_time;
 	_TimeType cycles {_time_budget / cycle_period.count()};
-	for (int64_t i {0}; i < cycles.count(); ++i)
-		execute_cycle(cycle_period);
+
+	for (int64_t i {0}; i < cycles.count(); ++i) execute_cycle(cycle_period);
+	
 	_time_budget -= cycles * cycle_period.count();
 	_access_lock.unlock();
 }
 
 
 void Chip8::execute_cycle(_TimeType cycle_time) {
-	static constexpr _TimeType timer_period {1000U / 60U};
+	static constexpr _TimeType timer_period {_billion / 60U};
 	// Keep track of elapsed time to update the timers.
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
@@ -243,6 +245,9 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	if (_key_wait) return;
 
 	// Grab and execute the next instruction.
+	if (_pc < _Prog_Start || _pc > _Prog_End)
+		throw new Chip8Error("PC is outside of the program range.");
+
 	uint16_t instruction = get_hword(_pc);
 	_InstrFunc instr_func = get_instr_func(instruction);
 	instr_func(*this, instruction);
@@ -254,9 +259,9 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 		_speaker->start_sound();
 		_sounding = true;
 	}
-	// Increment the program counter if the instruction was not a jump or call.
+	// Increment _pc if the instruction was not a jump, call, or wait.
 	if (instr_func != in_jump && instr_func != in_jumpi
-		&& instr_func != in_call) _pc += 2;
+		&& instr_func != in_call && instr_func != in_keyd) _pc += 2;
 }
 
 
@@ -300,11 +305,18 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword) {
 void Chip8::key_pressed(uint8_t key) {
 	if (key > 0xf) throw new std::domain_error("Key value too large.");
 	if (!_key_wait) return;
-	_access_lock.lock();
-	uint16_t instruction = get_hword(_pc - 2);
-	uint8_t x = instr_b(instruction);
-	_gprf[x] = key;
-	_access_lock.unlock();
+	uint16_t instruction = get_hword(_pc);
+	_gprf[instr_b(instruction)] = key;
+	_pc += 2;
+	_pressed_key = key;
+}
+
+
+void Chip8::key_released(uint8_t key) {
+	if (key > 0xf) throw new std::domain_error("Key value too large.");
+	if (key != _pressed_key) return;
+	_key_wait = false;
+	_pressed_key = 0x10;
 }
 
 
@@ -453,7 +465,7 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instr) { // ANNN
 void Chip8::in_jumpi(Chip8& vm, uint16_t instr) { // BNNN
 	uint16_t addr { static_cast<uint16_t>(vm._gprf[0] + instr_addr(instr)) };
 	if (addr < _Prog_Start || _Prog_End > _Prog_End)
-		Chip8Error("Illegal VM memory operation.");
+		Chip8Error("Jump to address outside program range.");
 	vm._pc = addr;
 }
 
@@ -470,8 +482,6 @@ void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 	uint8_t xpos { vm._gprf[instr_b(instr)] };
  	uint8_t ypos { vm._gprf[instr_c(instr)] };
 	uint8_t y_max  { std::min(instr_d(instr), static_cast<uint8_t>(32)) };
-	if (vm._index  < _Prog_Start || vm._index + y_max > _Prog_End)
-		Chip8Error("Illegal VM memory operation.");
 	int x_shift {56 - xpos};
 
 	// Iterate over each line of the sprite.
@@ -577,10 +587,6 @@ void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
 
 void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
 	uint8_t upper_bound = instr_b(instr);
-
-	if (vm._index < _Prog_Start || vm._index + upper_bound > _Prog_End)
-		throw Chip8Error("Illegal VM memory operation.");
-
 	for (uint32_t i {0}; i <= upper_bound; ++i)
 		vm._gprf[i] = vm._mem[vm._index ++];
 }

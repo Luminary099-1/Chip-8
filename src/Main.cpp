@@ -1,34 +1,40 @@
 #include "Main.hpp"
 #include <wx/numdlg.h>
+#include <chrono>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 
 // Maps wxWidget key input characters to numerical values for the Chip-8 VM.
 const std::map<wxChar, uint8_t> key_map = {
-	{'0', 0x00},
-	{'1', 0x01},
-	{'2', 0x02},
-	{'3', 0x03},
-	{'4', 0x04},
-	{'5', 0x05},
-	{'6', 0x06},
-	{'7', 0x07},
-	{'8', 0x08},
-	{'9', 0x09},
-	{'a', 0x0a},
-	{'b', 0x0b},
-	{'c', 0x0c},
-	{'d', 0x0d},
-	{'e', 0x0e},
-	{'f', 0x0f}
+	{'0', 0x0},		{'1', 0x1},
+	{'2', 0x2},		{'3', 0x3},
+	{'4', 0x4},		{'5', 0x5},
+	{'6', 0x6},		{'7', 0x7},
+	{'8', 0x8},		{'9', 0x9},
+	{'a', 0xa},		{'A', 0xa},
+	{'b', 0xb},		{'B', 0xb},
+	{'c', 0xc},		{'C', 0xc},
+	{'d', 0xd},		{'D', 0xd},
+	{'e', 0xe},		{'E', 0xe},
+	{'f', 0xf},		{'F', 0xf}
 };
 
 
 bool Chip8CPP::OnInit() {
+	// _error_file.open(".\\errorlog.txt");
+	_old_error_buf = std::cerr.rdbuf();
+	// std::cerr.rdbuf(_error_file.rdbuf());
 	_frame = new MainFrame();
 	_frame->Show(true);
 	return true; // The app should continue running after returning.
+}
+
+
+int Chip8CPP::OnExit() {
+	std::cerr.rdbuf(_old_error_buf);
+	return 0;
 }
 
 
@@ -147,6 +153,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	// Configure the window size and position and create the VM.
 	SetSize(1280, 720);
 	Center();
+	SetFocus();
 	_vm = new Chip8(this, _screen, this, this);
 	_run_lock.lock();
 	_runner = std::thread(&MainFrame::run_vm, this);
@@ -179,7 +186,9 @@ void MainFrame::crashed(const char* what) {
 void MainFrame::on_key_up(wxKeyEvent& event) {
 	// Unset the key in the map if it is valid.
 	try {
-		_key_states[key_map.at(event.GetUnicodeKey())] = false;
+		uint8_t key_val {key_map.at(event.GetUnicodeKey())};
+		_key_states[key_val] = false;
+		_vm->key_released(key_val);
 	} catch (std::out_of_range& e) {
 		return;
 	}
@@ -189,9 +198,9 @@ void MainFrame::on_key_up(wxKeyEvent& event) {
 void MainFrame::on_key_down(wxKeyEvent& event) {
 	// Set the key in the map if it is valid.
 	try {
-		uint8_t key = key_map.at(event.GetUnicodeKey());
-		_vm->key_pressed(key);
-		_key_states[key] = true;
+		uint8_t key_val {key_map.at(event.GetUnicodeKey())};
+		_key_states[key_val] = true;
+		_vm->key_pressed(key_val);
 	} catch (std::out_of_range& e) {
 		return;
 	}
@@ -217,6 +226,8 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 	}
+
+	SetFocus();
 }
 
 
@@ -238,6 +249,8 @@ void MainFrame::on_save(wxCommandEvent& event) {
 		state_file .write((char*) &state, sizeof(state));
 		state_file.close();
 	}
+
+	SetFocus();
 }
 
 
@@ -261,6 +274,8 @@ void MainFrame::on_load(wxCommandEvent& event) {
 		// Pass the state to the VM.
 		_vm->set_state(state);
 	}
+
+	SetFocus();
 }
 
 
@@ -291,6 +306,8 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 	// If the user accepts, set the frequency.
 	if (freqDialog.ShowModal() != wxID_CANCEL)
 		_vm->frequency((uint16_t) freqDialog.GetValue());
+	
+	SetFocus();
 }
 
 
@@ -323,8 +340,11 @@ void MainFrame::on_about(wxCommandEvent& event) {
 
 
 void MainFrame::run_vm(MainFrame* frame) {
-	static constexpr Chip8::_TimeType cycle_period {1000U / 60U};
+	using clock = std::chrono::steady_clock;
+	static constexpr Chip8::_TimeType cycle_period {Chip8::_billion / 60U};
+	
 	while (true) {
+		Chip8::_TimeType start_time {clock::now().time_since_epoch()};
 		frame->_run_lock.lock();
 		if (frame->_die) {
 			frame->_run_lock.unlock();
@@ -332,7 +352,10 @@ void MainFrame::run_vm(MainFrame* frame) {
 		}
 		frame->_vm->run(cycle_period);
 		frame->_run_lock.unlock();
-		std::this_thread::sleep_for(cycle_period);
+		Chip8::_TimeType delta {clock::now().time_since_epoch() - start_time};
+		Chip8::_TimeType sleep_period {cycle_period - delta};
+		if (sleep_period.count() > 0)
+			std::this_thread::sleep_for(cycle_period - delta);
 	}
 }
 
