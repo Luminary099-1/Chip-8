@@ -31,9 +31,16 @@ enum {
 
 class Chip8ScreenPanel : public wxPanel, public Chip8Display {
 private:
-	uint8_t* _image_buf;	// Space to store the image before passing to WX.
-	wxImage* _image;		// The image that will contain the screen data.
-	wxBitmap _resized;		// Stores the resized screen to be rendered.
+	uint8_t*	_image_buf;	// Space to store the image before passing to WX.
+	wxImage*	_image;		// The image that will contain the screen data.
+	wxBitmap	_resized;	// Stores the resized screen to be rendered.
+	bool		_update;	// The next update should redraw the buffer.
+	uint8_t	_foreR {0xff};	// Foreground red value.
+	uint8_t	_foreG {0xff};	// Foreground green value.
+	uint8_t	_foreB {0xff};	// Forground blue value.
+	uint8_t	_backR {0x00};	//Background red value.
+	uint8_t	_backG {0x00};	//Background green value.
+	uint8_t	_backB {0x00};	//Backround blue value.
 
 public:
 	/**
@@ -54,6 +61,11 @@ public:
 	bool AcceptsFocus() const override { return false; }
 
 	/**
+	 * @brief Indicates the screen is to be updated and redrawn.
+	 */
+	void mark() override;
+
+	/**
 	 * @brief Handles the paint events for the panel by having the image
 	 * rendered to the panel.
 	 * 
@@ -70,17 +82,14 @@ public:
 	void on_size(wxSizeEvent& event);
 
 	/**
-	 * @brief Renders the current contents of the member _image to the panel.
-	 * 
-	 * @param dc The device context onto which the _image is to be rendered.
+	 * @brief Clears the screen buffer.
 	 */
-	void render(wxDC& dc);
+	void clear_buffer();
 
 	/**
-	 * @brief 
-	 * 
+	 * @brief Redraws the image shown on the panel with the data in the buffer.
 	 */
-	void draw() override;
+	void publish_buffer();
 };
 
 
@@ -247,6 +256,11 @@ private:
 	 * @brief Prevents the VM to execute cycles by locking _runner_lock.
 	 */
 	void stop_vm();
+
+	/**
+	 * @brief Sets the status to indicate the VM is running.
+	 */
+	void show_running_status();
 };
 
 

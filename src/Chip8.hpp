@@ -7,11 +7,25 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <iostream>
 #include <string>
 #include <thread>
 
+/**
+ * @brief Standard exception class for errors pertaining to emulation.
+ */
+struct Chip8Error : public std::runtime_error {
+	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
 
-class Chip8SaveState {
+
+/**
+ * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
+ * Chip-8 language.
+ */
+class Chip8 {
+	friend class TestChip8;
+
 public:
 	// Type of std::chrono::duration to store the duration of execution.
 	typedef std::chrono::nanoseconds _TimeType;
@@ -19,10 +33,10 @@ public:
 	static constexpr long long _billion = 1000000000U;
 	// The size of the Chip-8 VM's memory in bytes.
 	static constexpr uint16_t _Mem_Size = 4096;
-	// Default constructor.
-	Chip8SaveState();
-	// Copy constructor.
-	Chip8SaveState(Chip8SaveState& state);
+	// Stream insertion operator override.
+	friend std::ostream& operator<<(std::ostream& os, Chip8& st);
+	// Stream extraction operator override.
+	friend std::istream& operator>>(std::istream& is, Chip8& st);
 
 protected:
 	uint8_t		_gprf[16] {0};				// General purpose register file.
@@ -39,23 +53,7 @@ protected:
 	std::atomic<bool> _key_wait {false};	// True if in_keyd is waiting.
 	_TimeType	_time_budget {0};	// Time available to execute cycles.
 	_TimeType	_timer {0};			// Stores the duration remaining for timers.
-};
 
-
-/**
- * @brief Standard exception class for errors pertaining to emulation.
- */
-struct Chip8Error : public std::runtime_error {
-	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
-};
-
-
-/**
- * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
- * Chip-8 language.
- */
-class Chip8 : public Chip8SaveState {
-	friend class TestChip8;
 public:
 	// First address of the program space in Chip-8 memory.
 	static constexpr uint16_t _Prog_Start = 0x200;
@@ -91,25 +89,6 @@ public:
 	 * each instruction being two bytes with nothing in between each.
 	 */
 	void load_program(std::string& program);
-
-	/**
-	 * @brief Obtain the current state of the VM.
-	 * 
-	 * Blocks if any blocking operating is being used by another thread.
-	 * 
-	 * @return A string containing the state of the VM.
-	 */
-	Chip8SaveState get_state();
-
-	/**
-	 * @brief Loads in the passed state into the VM to be resumed.
-	 * 
-	 * Blocks if any blocking operating is being used by another thread.
-	 * 
-	 * @param source A reference to a string containing the VM state to be
-	 * loaded.
-	 */
-	void set_state(Chip8SaveState& source);
 
 	/**
 	 * @return true if the VM crashed; false otherwise.

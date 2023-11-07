@@ -36,23 +36,44 @@ constexpr uint8_t Chip8::instr_imm(uint16_t instruction) {
 }
 
 
-Chip8SaveState::Chip8SaveState() {}
+std::ostream& operator<<(std::ostream& os, Chip8& st) {
+	os.write(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
+	os.write(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
+	os.write(reinterpret_cast<char*>(&st._index), sizeof(st._index));
+	os.write(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
+	os.write(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
+	os.write(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
+	os.write(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
+	os.write(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+	bool key_wait = st._key_wait;
+	os.write(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
+	os.write(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
+	os.write(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
+	os.write(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
+	os.write(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
+	os.write(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	return os;
+}
 
 
-Chip8SaveState::Chip8SaveState(Chip8SaveState& state) {
-	memcpy(_gprf, state._gprf, sizeof(_gprf));
-	_pc = state._pc;
-	_sp = state._sp;
-	_index = state._index;
-	_delay = state._delay;
-	_sound = state._sound;
-	memcpy(_mem, state._mem, sizeof(_mem));
-	memcpy(_screen, state._screen, sizeof(_screen));
-	_sounding = state._sounding;
-	_crashed = state._crashed;
-	_key_wait = state._key_wait.load();
-	_time_budget = state._time_budget;
-	_timer = state._timer;
+std::istream& operator>>(std::istream& is, Chip8& st) {
+	is.read(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
+	is.read(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
+	is.read(reinterpret_cast<char*>(&st._index), sizeof(st._index));
+	is.read(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
+	is.read(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
+	is.read(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
+	is.read(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
+	is.read(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+	bool key_wait {0};
+	is.read(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
+	st._key_wait.store(key_wait);
+	is.read(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
+	is.read(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
+	is.read(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
+	is.read(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
+	is.read(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	return is;
 }
 
 
@@ -143,21 +164,6 @@ void Chip8::load_program(std::string& program) {
 	_key_wait = false;
 	_sounding = false;
 
-	_access_lock.unlock();
-}
-
-
-Chip8SaveState Chip8::get_state() {
-	_access_lock.lock();
-	Chip8SaveState state {static_cast<Chip8SaveState>(*this)};
-	_access_lock.unlock();
-	return state;
-}
-
-
-void Chip8::set_state(Chip8SaveState& source) {
-	_access_lock.lock();
-	memcpy(static_cast<Chip8SaveState*>(this), &source, sizeof(Chip8SaveState));
 	_access_lock.unlock();
 }
 
@@ -333,7 +339,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instr) { // 0NNN
 
 void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
 	memset(vm._screen, 0, sizeof(vm._screen));
-	vm._display->draw();
+	vm._display->mark();
 }
 
 
@@ -498,7 +504,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 		// Update the screen memory with the new line.
 		vm._screen[ypos + y] = new_line;
 	}
-	vm._display->draw();
+	vm._display->mark();
 }
 
 
@@ -538,7 +544,7 @@ void Chip8::in_addi(Chip8& vm, uint16_t instr) { // FX1E
 
 
 void Chip8::in_ldspr(Chip8& vm, uint16_t instr) { // FX29
-	vm._index = FONT_OFF + vm._gprf[instr_b(instr)];
+	vm._index = FONT_OFF + vm._gprf[instr_b(instr)] * 5;
 }
 
 

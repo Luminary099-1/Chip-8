@@ -32,9 +32,11 @@ protected:
 
 public:
 	/**
-	 * @brief Called if the VM has updated the display output.
+	 * @brief Called if the VM has updated the display output. The display data
+	 * can be obtained by calling Chip8::get_screen_buf() on the instance being
+	 * observed.
 	 */
-	virtual void draw() = 0;
+	virtual void mark() = 0;
 };
 
 

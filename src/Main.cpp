@@ -43,6 +43,7 @@ Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
 	// Initialize the data structures for the screen image.
 	_image_buf = (uint8_t*) calloc(64 * 32, 3);
 	_image = new wxImage(64, 32, _image_buf, true);
+	_update = false;
 	// Bind the paint and resize events.
 	Bind(wxEVT_PAINT, &Chip8ScreenPanel::paint_event, this);
 	Bind(wxEVT_SIZE, &Chip8ScreenPanel::on_size, this);
@@ -54,19 +55,44 @@ Chip8ScreenPanel::~Chip8ScreenPanel() {
 }
 
 
+void Chip8ScreenPanel::mark() {
+	_update = true;
+	Refresh(false); // Causes EVT_PAINT to be fired (handled by paint_event).
+}
+
+
 void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
-	// On a call to draw the panel, call the render.
+	if (_update) {
+		publish_buffer();
+		_update = false;
+	}
+	// Grab the size of the panel.
+	int w;
+	int h;
 	wxPaintDC dc(this);
-    render(dc);
+	dc.GetSize(&w, &h);
+	// Obtain a bitmap of the image object with the same size; render it.
+	_resized = wxBitmap(_image->Scale(w, h /*, wxIMAGE_QUALITY_HIGH*/));
+	dc.DrawBitmap(_resized, 0, 0, false);
 }
 
 
 void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
-	Refresh(false); // Causes EVT_PAINT to be fired.
+	Refresh(false); // Causes EVT_PAINT to be fired (handled by paint_event).
+	event.Skip();
 }
 
 
-void Chip8ScreenPanel::draw() {
+void Chip8ScreenPanel::clear_buffer() {
+	for (size_t i {0}; i < sizeof(_image_buf); ++i) {
+		_image_buf[i++] = _backR;
+		_image_buf[i++] = _backG;
+		_image_buf[i] = _backB;
+	}
+}
+
+
+void Chip8ScreenPanel::publish_buffer() {
 	uint64_t* screen = _vm->get_screen_buf();
 	size_t offset {0}; // The image buffer offset.
 
@@ -75,32 +101,21 @@ void Chip8ScreenPanel::draw() {
 		// Initialize a mask to test pixels in the screen.
 		uint64_t mask {1ULL << 63};
 		for (int x {0}; x < 64; x ++) {
-			// Render set pixels as white; black otherwise.
-			uint8_t value {0x00};
-			if (mask & screen[y]) value = 0xff;
-
 			// Set the values in the buffer.
-			_image_buf[offset++] = value;
-			_image_buf[offset++] = value;
-			_image_buf[offset++] = value;
+			if (mask & screen[y]) {
+				_image_buf[offset++] = _foreR;
+				_image_buf[offset++] = _foreG;
+				_image_buf[offset++] = _foreB;
+			} else {
+				_image_buf[offset++] = _backR;
+				_image_buf[offset++] = _backG;
+				_image_buf[offset++] = _backB;
+			}
 
 			// Shuffle the bitmask along one bit.
 			mask = mask >> 1;
 		}
 	}
-
-	Refresh(false); // Causes EVT_PAINT to be fired.
-}
-
-
-void Chip8ScreenPanel::render(wxDC& dc) {
-	// Grab the size of the panel.
-	int w;
-	int h;
-	dc.GetSize(&w, &h);
-	// Obtain a bitmap of the image object with the same size; render it.
-	_resized = wxBitmap(_image->Scale(w, h /*, wxIMAGE_QUALITY_HIGH*/));
-	dc.DrawBitmap(_resized, 0, 0, false);
 }
 
 
@@ -208,13 +223,15 @@ void MainFrame::on_key_down(wxKeyEvent& event) {
 
 
 void MainFrame::on_open(wxCommandEvent& event) {
+	stop_vm();
+
 	// Construct a dialog to select the file path to open.
 	wxFileDialog openDialog(this, "Load Chip-8 Program", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
 	// Return if the user doesn't select a file.
 	if (openDialog.ShowModal() == wxID_CANCEL) return;
 	// Grab the selected file path.
-	std::string path = openDialog.GetPath();
+	std::string path {openDialog.GetPath()};
 	// Open the file and read it into a string.
 	std::ifstream program_file(path, std::fstream::binary);
 	std::stringstream sstr;
@@ -226,35 +243,32 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 	}
-
+	
+	_screen->clear_buffer();
+	_screen->mark();
 	SetFocus();
 }
 
 
-// FIXME: Save/load not working.
 void MainFrame::on_save(wxCommandEvent& event) {
-	Chip8SaveState state = _vm->get_state();
-
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
-		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
+		wxFileSelectorDefaultWildcardStr, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() != wxID_CANCEL) {
 		// Grab the selected file path and open the file.
-		std::string path = saveDalog.GetPath();
+		std::string path {saveDalog.GetPath()};
 		std::ofstream state_file;
-		state_file.open(path, std::ofstream::out);
+		state_file.open(path, std::ofstream::out | std::ofstream::binary);
 		// Write the state to the file and close it.
-		state_file .write((char*) &state, sizeof(state));
+		state_file << *_vm;
 		state_file.close();
 	}
-
 	SetFocus();
 }
 
 
-// FIXME: Save/load not working.
 void MainFrame::on_load(wxCommandEvent& event) {
 	stop_vm();
 
@@ -265,16 +279,14 @@ void MainFrame::on_load(wxCommandEvent& event) {
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() != wxID_CANCEL) {
 		// Grab the selected file path.
-		std::string path = saveDalog.GetPath();
+		std::string path {saveDalog.GetPath()};
 		// Read the state from the file and close it.
 		std::ifstream state_file(path, std::fstream::binary);
-		Chip8SaveState state {};
-		state_file.read((char*) &state, sizeof(state));
+		state_file >> *_vm;
 		state_file.close();
-		// Pass the state to the VM.
-		_vm->set_state(state);
 	}
 
+	_screen->mark();
 	SetFocus();
 }
 
@@ -285,16 +297,12 @@ void MainFrame::on_run(wxCommandEvent& event) {
 			"Error", wxOK | wxICON_ERROR | wxCENTRE, this);
 		return;
 	}
-
-	std::string msg = "VM Running @" + std::to_string(_vm->frequency()) + "Hz.";
-	SetStatusText(msg);
 	start_vm();
 }
 
 
 void MainFrame::on_stop(wxCommandEvent& event) {
 	stop_vm();
-	SetStatusText("Idle.");
 }
 
 
@@ -306,6 +314,8 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 	// If the user accepts, set the frequency.
 	if (freqDialog.ShowModal() != wxID_CANCEL)
 		_vm->frequency((uint16_t) freqDialog.GetValue());
+
+	if (_running) show_running_status();
 	
 	SetFocus();
 }
@@ -331,7 +341,6 @@ void MainFrame::close() {
 
 
 void MainFrame::on_about(wxCommandEvent& event) {
-	// Display a message box.
 	// TODO: Finalize the content in this box.
 	wxMessageBox("This program is a virtual machine for the original Chip-8 "
 		"language that most commonly ran on the RCA COSMAC VIP.",
@@ -341,7 +350,7 @@ void MainFrame::on_about(wxCommandEvent& event) {
 
 void MainFrame::run_vm(MainFrame* frame) {
 	using clock = std::chrono::steady_clock;
-	static constexpr Chip8::_TimeType cycle_period {Chip8::_billion / 60U};
+	static constexpr Chip8::_TimeType batch_period {Chip8::_billion / 60U};
 	
 	while (true) {
 		Chip8::_TimeType start_time {clock::now().time_since_epoch()};
@@ -350,12 +359,12 @@ void MainFrame::run_vm(MainFrame* frame) {
 			frame->_run_lock.unlock();
 			break;
 		}
-		frame->_vm->run(cycle_period);
+		frame->_vm->run(batch_period);
 		frame->_run_lock.unlock();
 		Chip8::_TimeType delta {clock::now().time_since_epoch() - start_time};
-		Chip8::_TimeType sleep_period {cycle_period - delta};
+		Chip8::_TimeType sleep_period {batch_period - delta};
 		if (sleep_period.count() > 0)
-			std::this_thread::sleep_for(cycle_period - delta);
+			std::this_thread::sleep_for(batch_period - delta);
 	}
 }
 
@@ -363,10 +372,18 @@ void MainFrame::run_vm(MainFrame* frame) {
 void MainFrame::start_vm() {
 	if (!_running) _run_lock.unlock();
 	_running = true;
+	show_running_status();
 }
 
 
 void MainFrame::stop_vm() {
 	if (_running) _run_lock.lock();
 	_running = false;
+	SetStatusText("Idle.");
+}
+
+
+void MainFrame::show_running_status() {
+	std::string msg {"VM Running @" + std::to_string(_vm->frequency()) + "Hz."};
+	SetStatusText(msg);
 }
