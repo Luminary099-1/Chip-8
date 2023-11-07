@@ -1,9 +1,11 @@
 #include "Main.hpp"
-#include <wx/numdlg.h>
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <wx/colordlg.h>
+#include <wx/numdlg.h>
 
 
 // Maps wxWidget key input characters to numerical values for the Chip-8 VM.
@@ -122,9 +124,12 @@ void Chip8ScreenPanel::publish_buffer() {
 MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	// Set up the "File" menu dropdown.
 	wxMenu* menu_file = new wxMenu;
-	menu_file->Append(ID_FILE_OPEN, "&Open\tCtrl-O", "Open a Chip-8 program");
-	menu_file->Append(ID_FILE_SAVE, "&Save\tCtrl-S", "Save an emulator state");
-	menu_file->Append(ID_FILE_LOAD, "&Load\tCtrl-L", "Load an emulator state");
+	menu_file->Append(
+		ID_FILE_OPEN, "&Open ROM\tCtrl-O", "Open a Chip-8 program");
+	menu_file->Append(
+		ID_FILE_SAVE, "&Save State\tCtrl-S", "Save an emulator state");
+	menu_file->Append(
+		ID_FILE_LOAD, "&Load State\tCtrl-L", "Load an emulator state");
 	menu_file->AppendSeparator();
 	menu_file->Append(wxID_EXIT);
 	// Set up the "Emulation" menu dropdown.
@@ -133,6 +138,11 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	menu_emu->Append(ID_EMU_STOP, "&Stop\tCtrl-T", "Stop the emulator");
 	menu_emu->Append(ID_EMU_SET_FREQ, "&Set Frequency\t"
 		"Ctrl-F", "Set the instruction frequency of the emulator");
+	menu_emu->AppendSeparator();
+	menu_emu->Append(ID_EMU_SET_FORE, "Set Foreground",
+		"Set the display's forground color.");
+	menu_emu->Append(ID_EMU_SET_BACK, "Set Background",
+		"Set the display's background color.");
 	// Set up the "Help" menu dropdown.
 	wxMenu* menu_help = new wxMenu;
 	menu_help->Append(wxID_ABOUT);
@@ -159,6 +169,8 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_MENU, &MainFrame::on_run, this, ID_EMU_RUN);
 	Bind(wxEVT_MENU, &MainFrame::on_stop, this, ID_EMU_STOP);
 	Bind(wxEVT_MENU, &MainFrame::on_set_freq, this, ID_EMU_SET_FREQ);
+	Bind(wxEVT_MENU, &MainFrame::on_set_color, this, ID_EMU_SET_FORE);
+	Bind(wxEVT_MENU, &MainFrame::on_set_color, this, ID_EMU_SET_BACK);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
 	Bind(wxEVT_CLOSE_WINDOW, &MainFrame::on_close, this, wxID_ANY);
@@ -317,6 +329,27 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 
 	if (_running) show_running_status();
 	
+	SetFocus();
+}
+
+
+void MainFrame::on_set_color(wxCommandEvent& event) {
+	// Construct a dialog to select the desired color,
+	wxColourDialog colorDialog(this);
+	// If the user accepts, set the forground color.
+	if (colorDialog.ShowModal() != wxID_CANCEL) {
+		wxColour c = colorDialog.GetColourData().GetColour();
+		if (event.GetId() == ID_EMU_SET_FORE) {
+			_screen->_foreR = c.GetRed();
+			_screen->_foreG = c.GetGreen();
+			_screen->_foreB = c.GetBlue();
+		} else {
+			_screen->_backR = c.GetRed();
+			_screen->_backG = c.GetGreen();
+			_screen->_backB = c.GetBlue();
+		}
+		_screen->mark();
+	}
 	SetFocus();
 }
 

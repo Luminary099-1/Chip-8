@@ -26,6 +26,8 @@ enum {
 	ID_EMU_RUN,
 	ID_EMU_STOP,
 	ID_EMU_SET_FREQ,
+	ID_EMU_SET_FORE,
+	ID_EMU_SET_BACK
 };
 
 
@@ -35,6 +37,8 @@ private:
 	wxImage*	_image;		// The image that will contain the screen data.
 	wxBitmap	_resized;	// Stores the resized screen to be rendered.
 	bool		_update;	// The next update should redraw the buffer.
+
+public:
 	uint8_t	_foreR {0xff};	// Foreground red value.
 	uint8_t	_foreG {0xff};	// Foreground green value.
 	uint8_t	_foreB {0xff};	// Forground blue value.
@@ -42,7 +46,6 @@ private:
 	uint8_t	_backG {0x00};	//Background green value.
 	uint8_t	_backB {0x00};	//Backround blue value.
 
-public:
 	/**
 	 * @brief Construct a new Chip8ScreenPanel object.
 	 * 
@@ -215,6 +218,16 @@ private:
 	 * Frequency".
 	 */
 	void on_set_freq(wxCommandEvent& event);
+
+	/**
+	 * @brief Handles the "Emulation->Set Foreground" or "Emulation->Set
+	 * Background" button on the menu bar, promting the user to select a colour
+	 * for the display's forground or background.
+	 * 
+	 * @param event The event produced when the user presses "Emulation->Set
+	 * Foreground".
+	 */
+	void on_set_color(wxCommandEvent& event);
 
 	/**
 	 * @brief Handles the "Help->About" button on the menu bar, showing a dialog
