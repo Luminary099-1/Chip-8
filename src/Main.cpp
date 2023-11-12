@@ -10,17 +10,14 @@
 
 // Maps wxWidget key input characters to numerical values for the Chip-8 VM.
 const std::map<wxChar, uint8_t> key_map = {
-	{'0', 0x0},		{'1', 0x1},
+	{'x', 0x0},		{'1', 0x1},
 	{'2', 0x2},		{'3', 0x3},
-	{'4', 0x4},		{'5', 0x5},
-	{'6', 0x6},		{'7', 0x7},
-	{'8', 0x8},		{'9', 0x9},
-	{'a', 0xa},		{'A', 0xa},
-	{'b', 0xb},		{'B', 0xb},
-	{'c', 0xc},		{'C', 0xc},
-	{'d', 0xd},		{'D', 0xd},
-	{'e', 0xe},		{'E', 0xe},
-	{'f', 0xf},		{'F', 0xf}
+	{'Q', 0x4},		{'W', 0x5},
+	{'E', 0x6},		{'A', 0x7},
+	{'S', 0x8},		{'D', 0x9},
+	{'Z', 0xa},		{'C', 0xb},
+	{'4', 0xc},		{'R', 0xd},
+	{'F', 0xe},		{'V', 0xf},
 };
 
 
@@ -86,10 +83,11 @@ void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
 
 
 void Chip8ScreenPanel::clear_buffer() {
-	for (size_t i {0}; i < sizeof(_image_buf); ++i) {
+	size_t i {0};
+	while (i < sizeof(_image_buf)) {
 		_image_buf[i++] = _backR;
 		_image_buf[i++] = _backG;
-		_image_buf[i] = _backB;
+		_image_buf[i++] = _backB;
 	}
 }
 
@@ -99,10 +97,10 @@ void Chip8ScreenPanel::publish_buffer() {
 	size_t offset {0}; // The image buffer offset.
 
 	// Iterate over the VM's screen.
-	for (int y {0}; y < 32; y ++) {
+	for (int y {0}; y < 32; ++y) {
 		// Initialize a mask to test pixels in the screen.
 		uint64_t mask {1ULL << 63};
-		for (int x {0}; x < 64; x ++) {
+		for (int x {0}; x < 64; ++x) {
 			// Set the values in the buffer.
 			if (mask & screen[y]) {
 				_image_buf[offset++] = _foreR;
@@ -139,9 +137,9 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	menu_emu->Append(ID_EMU_SET_FREQ, "&Set Frequency\t"
 		"Ctrl-F", "Set the instruction frequency of the emulator");
 	menu_emu->AppendSeparator();
-	menu_emu->Append(ID_EMU_SET_FORE, "Set Foreground",
+	menu_emu->Append(ID_EMU_SET_FORE, "Set Foreground Color",
 		"Set the display's forground color.");
-	menu_emu->Append(ID_EMU_SET_BACK, "Set Background",
+	menu_emu->Append(ID_EMU_SET_BACK, "Set Background Color",
 		"Set the display's background color.");
 	// Set up the "Help" menu dropdown.
 	wxMenu* menu_help = new wxMenu;
@@ -175,7 +173,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
 	Bind(wxEVT_CLOSE_WINDOW, &MainFrame::on_close, this, wxID_ANY);
 	// Initialize the keyboard key states.
-	for (int i = 0; i < 16; i ++) _key_states[i] = false;
+	for (int i = 0; i < 16; ++i) _key_states[i] = false;
 
 	// Configure the window size and position and create the VM.
 	SetSize(1280, 720);
@@ -234,6 +232,7 @@ void MainFrame::on_key_down(wxKeyEvent& event) {
 }
 
 
+// TODO: Add file extention recognition.
 void MainFrame::on_open(wxCommandEvent& event) {
 	stop_vm();
 
@@ -262,6 +261,7 @@ void MainFrame::on_open(wxCommandEvent& event) {
 }
 
 
+// TODO: Add file extention recognition.
 void MainFrame::on_save(wxCommandEvent& event) {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
@@ -281,6 +281,7 @@ void MainFrame::on_save(wxCommandEvent& event) {
 }
 
 
+// TODO: Add file extention recognition.
 void MainFrame::on_load(wxCommandEvent& event) {
 	stop_vm();
 

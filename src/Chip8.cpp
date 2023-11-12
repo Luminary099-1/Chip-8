@@ -134,7 +134,7 @@ Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 	_freq = 1200;
 	_programmed = false;
 	_display->_vm = this;
-	_pressed_key = 0x10; // An invalid key value sentinel.
+	_pressed_key = 0x10U; // An invalid key value sentinel.
 }
 
 
@@ -214,12 +214,6 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 			<< std::uppercase << std::hex << instruction;
 		throw Chip8Error(msg.str());
 	}
-	// Ensure functions with addresses are valid.
-	if (func == in_sys || func == in_jump || func == in_call) {
-		uint16_t addr = instr_addr(instruction);
-		if (addr < _Prog_Start || addr > _Prog_End)
-			std::out_of_range("Illegal VM memory operation.");
-	}
 	return func;
 }
 
@@ -298,13 +292,19 @@ bool Chip8::is_programmed() {
 
 
 uint16_t Chip8::get_hword(uint16_t addr) {
-	return (_mem[addr] << 8) + _mem[addr + 1];
+	if (addr < 0 || addr >= _Mem_Size)
+		throw new std::out_of_range("Invalid memory location.");
+	uint16_t hword {static_cast<uint16_t>(_mem[addr] << 8)};
+	hword += _mem[addr + 1];
+	return hword;
 }
 
 
 void Chip8::set_hword(uint16_t addr, uint16_t hword) {
-	_mem[addr] = hword >> 8;
-	_mem[addr + 1] = hword & 0xff;
+	if (addr < 0 || addr >= _Mem_Size)
+		throw new std::out_of_range("Invalid memory location.");
+	_mem[addr] = static_cast<uint8_t>(hword >> 8);
+	_mem[addr + 1] = static_cast<uint8_t>(hword & 0xffU);
 }
 
 
@@ -344,7 +344,7 @@ void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
 
 
 void Chip8::in_rts(Chip8& vm, uint16_t instr) { // 00EE
-	if (vm._sp == 0) throw Chip8Error("VM call stack underflow.");
+	if (vm._sp <= 1) throw Chip8Error("VM call stack underflow.");
 	vm._sp -= 2;
 	vm._pc = vm.get_hword(vm._sp);
 }
@@ -356,7 +356,7 @@ void Chip8::in_jump(Chip8& vm, uint16_t instr) { // 1NNN
 
 
 void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
-	if (vm._sp == FONT_OFF) throw Chip8Error("VM call stack overflow.");
+	if (vm._sp >= FONT_OFF - 1) throw Chip8Error("VM call stack overflow.");
 	vm.set_hword(vm._sp, vm._pc);
 	vm._sp += 2;
 	vm._pc = instr_addr(instr);
@@ -470,8 +470,6 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instr) { // ANNN
 
 void Chip8::in_jumpi(Chip8& vm, uint16_t instr) { // BNNN
 	uint16_t addr { static_cast<uint16_t>(vm._gprf[0] + instr_addr(instr)) };
-	if (addr < _Prog_Start || _Prog_End > _Prog_End)
-		Chip8Error("Jump to address outside program range.");
 	vm._pc = addr;
 }
 
@@ -570,9 +568,6 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 	
 	scratch = scratch << 1; // Make the last shift.
 
-	if (vm._index < _Prog_Start || vm._index + 2 > _Prog_End)
-		Chip8Error("Illegal VM memory operation.");
-
 	// Store each digit in memory.
 	vm._mem[vm._index] = (scratch & hundreds) >> 16;
 	vm._mem[vm._index + 1] = (scratch & tens) >> 12;
@@ -581,18 +576,12 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 
 
 void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
-	uint8_t upper_bound = instr_b(instr);
-
-	if (vm._index < _Prog_Start || vm._index + upper_bound > _Prog_End)
-		throw Chip8Error("Illegal VM memory operation.");
-
-	for (uint32_t i {0}; i <= upper_bound; ++i)
+	for (uint32_t i {0}; i <= instr_b(instr); ++i)
 		vm._mem[vm._index ++] = vm._gprf[i];
 }
 
 
 void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
-	uint8_t upper_bound = instr_b(instr);
-	for (uint32_t i {0}; i <= upper_bound; ++i)
+	for (uint32_t i {0}; i <= instr_b(instr); ++i)
 		vm._gprf[i] = vm._mem[vm._index ++];
 }
