@@ -1,6 +1,10 @@
 #pragma once
-#include "Chip8.hpp"
+
 #include <cstdint>
+
+
+// Forward declaration of Chip8 to avoid using a circular #include directive.
+class Chip8;
 
 
 /**

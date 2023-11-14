@@ -181,6 +181,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	SetFocus();
 	_vm = new Chip8(this, _screen, this, this);
 	_run_lock.lock();
+	_die = false;
 	_runner = std::thread(&MainFrame::run_vm, this);
 	_running = false;
 }
@@ -249,7 +250,8 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	sstr << program_file.rdbuf();
 	// Pass the string of the program to the VM.
 	try {
-		_vm->load_program(sstr.str());
+		std::string program {sstr.str()};
+		_vm->load_program(program);
 		SetStatusText("Idle");
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
@@ -404,14 +406,16 @@ void MainFrame::run_vm(MainFrame* frame) {
 
 
 void MainFrame::start_vm() {
-	if (!_running) _run_lock.unlock();
+	if (_running) return;
+	_run_lock.unlock();
 	_running = true;
 	show_running_status();
 }
 
 
 void MainFrame::stop_vm() {
-	if (_running) _run_lock.lock();
+	if (!_running) return;
+	_run_lock.lock();
 	_running = false;
 	SetStatusText("Idle.");
 }
