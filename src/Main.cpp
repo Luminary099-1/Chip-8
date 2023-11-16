@@ -93,7 +93,7 @@ void Chip8ScreenPanel::clear_buffer() {
 
 
 void Chip8ScreenPanel::publish_buffer() {
-	uint64_t* screen = _vm->get_screen_buf();
+	uint64_t* screen {_vm->get_screen_buf()};
 	size_t offset {0}; // The image buffer offset.
 
 	// Iterate over the VM's screen.
@@ -151,7 +151,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	menuBar->Append(menu_help, "&Help");
 	SetMenuBar(menuBar);
 	CreateStatusBar();
-	SetStatusText("No program loaded, idle");
+	SetStatusText("No program loaded, idle.");
 	// Set up the sound display for the VM.
 	_sound = new wxSound("500.wav", false);
 	_screen = new Chip8ScreenPanel(this);

@@ -146,10 +146,10 @@ void Chip8::load_program(std::string& program) {
 		throw std::invalid_argument("Program is too large.");
 
 	// Zero initialize memory and registers. Load the font.
-	memset(_mem, 0, sizeof(_mem));
-	memset(_screen, 0, sizeof(_screen));
-	memcpy(_mem + FONT_OFF, FONT, sizeof(FONT));
-	memset(_gprf, 0, sizeof(_gprf));
+	memset(&_mem, 0, sizeof(_mem));
+	memset(&_screen, 0, sizeof(_screen));
+	memcpy(&_mem[FONT_OFF], FONT, sizeof(FONT));
+	memset(&_gprf, 0, sizeof(_gprf));
 	_sp = 0;
 	_pc = _Prog_Start;
 	_index = 0;
@@ -157,7 +157,7 @@ void Chip8::load_program(std::string& program) {
 	_sound = 0;
 	
 	// Copy the program into memory.
-	memcpy(_mem + _Prog_Start, (void*) program.data(), program.length());
+	memcpy(&_mem[_Prog_Start], (void*) program.data(), program.length());
 
 	// Set VM data to defaults.
 	_crashed = false;
@@ -251,7 +251,15 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 
 	uint16_t instruction = get_hword(_pc);
 	_InstrFunc instr_func = get_instr_func(instruction);
-	instr_func(*this, instruction);
+	try {
+		instr_func(*this, instruction);
+	} catch (std::out_of_range& e) {
+		std::stringstream msg;
+		msg	<< "Memory access violation: "
+			<< e.what();
+		throw Chip8Error(msg.str());
+	}
+
 	// Set the sound output to reflect the value of the timer.
 	if (_sounding && _sound == 0) {
 		_speaker->stop_sound();
@@ -293,19 +301,19 @@ bool Chip8::is_programmed() {
 
 
 uint16_t Chip8::get_hword(uint16_t addr) {
-	if (addr < 0 || addr >= _Mem_Size)
+	if (addr < 0 || addr >= _mem.size())
 		throw new std::out_of_range("Invalid memory location.");
-	uint16_t hword {static_cast<uint16_t>(_mem[addr] << 8)};
-	hword += _mem[addr + 1];
+	uint16_t hword {static_cast<uint16_t>(_mem.at(addr) << 8)};
+	hword += _mem.at(addr + 1);
 	return hword;
 }
 
 
 void Chip8::set_hword(uint16_t addr, uint16_t hword) {
-	if (addr < 0 || addr >= _Mem_Size)
+	if (addr < 0 || addr >= _mem.size())
 		throw new std::out_of_range("Invalid memory location.");
-	_mem[addr] = static_cast<uint8_t>(hword >> 8);
-	_mem[addr + 1] = static_cast<uint8_t>(hword & 0xffU);
+	_mem.at(addr) = static_cast<uint8_t>(hword >> 8);
+	_mem.at(addr + 1) = static_cast<uint8_t>(hword & 0xffU);
 }
 
 
@@ -328,7 +336,7 @@ void Chip8::key_released(uint8_t key) {
 
 
 uint64_t* Chip8::get_screen_buf() {
-	return _screen;
+	return &_screen[0];
 }
 
 
@@ -339,7 +347,7 @@ void Chip8::in_sys(Chip8& vm, uint16_t instr) { // 0NNN
 
 
 void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
-	memset(vm._screen, 0, sizeof(vm._screen));
+	memset(&vm._screen, 0, sizeof(vm._screen));
 	vm._display->mark();
 }
 
@@ -470,8 +478,7 @@ void Chip8::in_loadi(Chip8& vm, uint16_t instr) { // ANNN
 
 
 void Chip8::in_jumpi(Chip8& vm, uint16_t instr) { // BNNN
-	uint16_t addr { static_cast<uint16_t>(vm._gprf[0] + instr_addr(instr)) };
-	vm._pc = addr;
+	vm._pc = vm._gprf[0x0] + instr_addr(instr);
 }
 
 
@@ -482,26 +489,26 @@ void Chip8::in_rand(Chip8& vm, uint16_t instr) { // CXNN
 
 // TODO: Consider trying to simplify this function.
 void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
-	vm._gprf[0x0f] = 0x00; // Initialize the overwite flag to 0.
+	vm._gprf[0xf] = 0x00; // Assume no overwrite for now.
 	// Grab the sprite coordinates, number of lines to draw, and the x shift..
 	uint8_t xpos { vm._gprf[instr_b(instr)] };
  	uint8_t ypos { vm._gprf[instr_c(instr)] };
-	uint8_t y_max  { std::min(instr_d(instr), static_cast<uint8_t>(32)) };
+	int y_max  { std::min(static_cast<int>(instr_d(instr)), 32 - ypos) };
 	int x_shift {56 - xpos};
 
 	// Iterate over each line of the sprite.
 	for (uint8_t y {0}; y < y_max; ++y) {
 		// Grab the row from the sprite.
-		uint64_t spr_line {static_cast<uint64_t>(vm._mem[vm._index + y])};
+		uint64_t spr_line {static_cast<uint64_t>(vm._mem.at(vm._index + y))};
 		// Shift the sprite row left or right.
 		if (x_shift >= 0) spr_line = spr_line << x_shift;
 		else spr_line = spr_line >> (-1 * x_shift);
 		// Determine the new screen line.
-		uint64_t new_line {vm._screen[ypos + y] ^ spr_line};
+		uint64_t new_line {vm._screen.at(ypos + y) ^ spr_line};
 		// Set the flag if an overrite happened.
-		if (vm._screen[ypos + y] & ~new_line != 0x0) vm._gprf[0x0f] = 0x01;
+		if (vm._screen.at(ypos + y) & ~new_line != 0x0) vm._gprf[0xf] = 0x01;
 		// Update the screen memory with the new line.
-		vm._screen[ypos + y] = new_line;
+		vm._screen.at(ypos + y) = new_line;
 	}
 	vm._display->mark();
 }
@@ -570,19 +577,19 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 	scratch = scratch << 1; // Make the last shift.
 
 	// Store each digit in memory.
-	vm._mem[vm._index] = (scratch & hundreds) >> 16;
-	vm._mem[vm._index + 1] = (scratch & tens) >> 12;
-	vm._mem[vm._index + 2] = (scratch & ones) >> 8;
+	vm._mem.at(vm._index) = (scratch & hundreds) >> 16;
+	vm._mem.at(vm._index + 1) = (scratch & tens) >> 12;
+	vm._mem.at(vm._index + 2) = (scratch & ones) >> 8;
 }
 
 
 void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
-	for (uint32_t i {0}; i <= instr_b(instr); ++i)
-		vm._mem[vm._index ++] = vm._gprf[i];
+	for (uint8_t i {0}; i <= instr_b(instr); ++i)
+		vm._mem.at(vm._index ++) = vm._gprf[i];
 }
 
 
 void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
-	for (uint32_t i {0}; i <= instr_b(instr); ++i)
-		vm._gprf[i] = vm._mem[vm._index ++];
+	for (uint8_t i {0}; i <= instr_b(instr); ++i)
+		vm._gprf[i] = vm._mem.at(vm._index ++);
 }
