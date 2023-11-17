@@ -104,8 +104,11 @@ class MainFrame: public wxFrame, public Chip8Keyboard,
 public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
+	 * 
+	 * @param sound_exists Will be set by the constructor to indicate if the
+	 * "500.wav" sound file was successfully loaded.
 	 */
-	MainFrame();
+	MainFrame(bool& sound_exists);
 
 private:
 	Chip8* 				_vm;		// Chip-8 VM.

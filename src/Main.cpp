@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <wx/colordlg.h>
+#include <wx/msgdlg.h>
 #include <wx/numdlg.h>
 
 
@@ -25,9 +26,17 @@ bool Chip8CPP::OnInit() {
 	// _error_file.open(".\\errorlog.txt");
 	_old_error_buf = std::cerr.rdbuf();
 	// std::cerr.rdbuf(_error_file.rdbuf());
-	_frame = new MainFrame();
+	bool sound_exists;
+	_frame = new MainFrame(sound_exists);
+	if (!sound_exists) {
+		wxMessageDialog dialog(nullptr, "Unable to open sound file.",
+			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
+		dialog.ShowModal();
+		_frame->Close();
+		return false;
+	}
 	_frame->Show(true);
-	return true; // The app should continue running after returning.
+	return true;
 }
 
 
@@ -119,7 +128,8 @@ void Chip8ScreenPanel::publish_buffer() {
 }
 
 
-MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
+MainFrame::MainFrame(bool& sound_exists)
+: wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	// Set up the "File" menu dropdown.
 	wxMenu* menu_file = new wxMenu;
 	menu_file->Append(
@@ -154,6 +164,7 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
 	SetStatusText("No program loaded, idle.");
 	// Set up the sound display for the VM.
 	_sound = new wxSound("500.wav", false);
+	sound_exists = _sound->IsOk();
 	_screen = new Chip8ScreenPanel(this);
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 	sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
@@ -248,15 +259,16 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	std::ifstream program_file(path, std::fstream::binary);
 	std::stringstream sstr;
 	sstr << program_file.rdbuf();
+	std::string program {sstr.str()};
+	
 	// Pass the string of the program to the VM.
 	try {
-		std::string program {sstr.str()};
 		_vm->load_program(program);
-		SetStatusText("Idle");
 	} catch (std::exception& e) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 	}
 	
+	SetStatusText("Idle");
 	_screen->clear_buffer();
 	_screen->mark();
 	SetFocus();
