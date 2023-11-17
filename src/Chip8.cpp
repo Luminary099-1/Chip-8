@@ -140,11 +140,11 @@ Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
 
 
 void Chip8::load_program(std::string& program) {
-	_access_lock.lock();
 	// Verify the program isn't odd or too large.
 	if (program.size() > _Max_Prog_Size)
 		throw std::invalid_argument("Program is too large.");
 
+	_access_lock.lock();
 	// Zero initialize memory and registers. Load the font.
 	memset(&_mem, 0, sizeof(_mem));
 	memset(&_screen, 0, sizeof(_screen));
