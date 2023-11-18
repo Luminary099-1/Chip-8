@@ -29,9 +29,9 @@ bool Chip8CPP::OnInit() {
 	bool sound_exists;
 	_frame = new MainFrame(sound_exists);
 	if (!sound_exists) {
-		wxMessageDialog dialog(nullptr, "Unable to open sound file.",
+		wxMessageDialog errorDialog(nullptr, "Unable to open sound file.",
 			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
-		dialog.ShowModal();
+		errorDialog.ShowModal();
 		_frame->Close();
 		return false;
 	}
@@ -190,7 +190,7 @@ MainFrame::MainFrame(bool& sound_exists)
 	SetSize(1280, 720);
 	Center();
 	SetFocus();
-	_vm = new Chip8(this, _screen, this, this);
+	_vm = new Chip8(this, _screen, this);
 	_run_lock.lock();
 	_die = false;
 	_runner = std::thread(&MainFrame::run_vm, this);
@@ -210,13 +210,6 @@ void MainFrame::start_sound() {
 
 void MainFrame::stop_sound() {
 	_sound->Stop();
-}
-
-
-void MainFrame::crashed(const char* what) {
-	// Clear the status message and show an error dialog.
-	SetStatusText("");
-	wxMessageBox(what, "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 }
 
 
@@ -280,17 +273,22 @@ void MainFrame::on_save(wxCommandEvent& event) {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-
 	// Do nothing if the user doesn't select a file.
-	if (saveDalog.ShowModal() != wxID_CANCEL) {
-		// Grab the selected file path and open the file.
-		std::string path {saveDalog.GetPath()};
-		std::ofstream state_file;
-		state_file.open(path, std::ofstream::out | std::ofstream::binary);
-		// Write the state to the file and close it.
+	if (saveDalog.ShowModal() == wxID_CANCEL) return;
+
+	std::string path {saveDalog.GetPath()};
+	std::ofstream state_file;
+	state_file.open(path, std::ofstream::out | std::ofstream::binary);
+	try {
 		state_file << *_vm;
-		state_file.close();
+	} catch (std::ios_base::failure& e) {
+		std::string msg {"Failed to save state: "};
+		msg.append(e.what());
+		wxMessageDialog errorDialog(this, msg, "Error Saving State",
+			wxOK | wxICON_ERROR | wxCENTRE);
+		errorDialog.ShowModal();
 	}
+	state_file.close();
 	SetFocus();
 }
 
@@ -302,16 +300,21 @@ void MainFrame::on_load(wxCommandEvent& event) {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Open Chip-8 State", "", "",
 		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
-
 	// Do nothing if the user doesn't select a file.
-	if (saveDalog.ShowModal() != wxID_CANCEL) {
-		// Grab the selected file path.
-		std::string path {saveDalog.GetPath()};
-		// Read the state from the file and close it.
-		std::ifstream state_file(path, std::fstream::binary);
+	if (saveDalog.ShowModal() == wxID_CANCEL) return;
+
+	std::string path {saveDalog.GetPath()};
+	std::ifstream state_file(path, std::fstream::binary);
+	try {
 		state_file >> *_vm;
-		state_file.close();
+	} catch (std::ios_base::failure& e) {
+		std::string msg {"Failed to load state: "};
+		msg.append(e.what());
+		wxMessageDialog errorDialog(this, msg, "Error Loading State",
+			wxOK | wxICON_ERROR | wxCENTRE);
+		errorDialog.ShowModal();
 	}
+	state_file.close();
 
 	_screen->mark();
 	SetFocus();

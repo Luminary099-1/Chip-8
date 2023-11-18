@@ -38,44 +38,61 @@ constexpr uint8_t Chip8::instr_imm(uint16_t instruction) {
 
 
 std::ostream& operator<<(std::ostream& os, Chip8& st) {
-	os.write(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
-	os.write(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
-	os.write(reinterpret_cast<char*>(&st._index), sizeof(st._index));
-	os.write(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
-	os.write(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
-	os.write(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
-	os.write(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
-	os.write(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
-	os.write(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
-	bool key_wait = st._key_wait;
-	os.write(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
-	os.write(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
-	os.write(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
-	os.write(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
-	os.write(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
-	os.write(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	std::ios_base::iostate prev_state = os.exceptions();
+	os.exceptions(std::istream::failbit);
+	try {
+		os.write(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
+		os.write(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
+		os.write(reinterpret_cast<char*>(&st._index), sizeof(st._index));
+		os.write(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
+		os.write(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
+		os.write(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
+		os.write(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
+		os.write(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+		os.write(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
+		bool key_wait = st._key_wait;
+		os.write(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
+		os.write(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
+		os.write(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
+		os.write(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
+		os.write(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
+		os.write(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	} catch (std::ios_base::failure& e) {
+		os.exceptions(prev_state);
+		throw e;
+	}
+	os.exceptions(prev_state);
 	return os;
 }
 
 
 std::istream& operator>>(std::istream& is, Chip8& st) {
-	is.read(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
-	is.read(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
-	is.read(reinterpret_cast<char*>(&st._index), sizeof(st._index));
-	is.read(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
-	is.read(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
-	is.read(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
-	is.read(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
-	is.read(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
-	is.read(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
-	bool key_wait {0};
-	is.read(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
-	st._key_wait.store(key_wait);
-	is.read(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
-	is.read(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
-	is.read(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
-	is.read(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
-	is.read(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	std::ios_base::iostate prev_state = is.exceptions();
+	is.exceptions(std::istream::eofbit | std::istream::failbit);
+	try {
+		is.read(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
+		is.read(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
+		is.read(reinterpret_cast<char*>(&st._index), sizeof(st._index));
+		is.read(reinterpret_cast<char*>(&st._delay), sizeof(st._delay));
+		is.read(reinterpret_cast<char*>(&st._sound), sizeof(st._sound));
+		is.read(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
+		is.read(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
+		is.read(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+		is.read(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
+		bool key_wait {0};
+		is.read(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
+		st._key_wait.store(key_wait);
+		is.read(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
+		is.read(reinterpret_cast<char*>(&st._timer), sizeof(st._timer));
+		is.read(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
+		is.read(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
+		is.read(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
+	} catch (std::ios_base::failure& e) {
+		st.clear_state();
+		is.exceptions(prev_state);
+		throw e;
+	}
+	is.exceptions(prev_state);
 	return is;
 }
 
@@ -131,13 +148,31 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 };
 
 
-Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp,
-	Chip8Sound* snd, Chip8Message* msg)
-	: _keyboard(key), _display(disp), _speaker(snd), _error(msg) {
+Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd)
+	: _keyboard(key), _display(disp), _speaker(snd) {
 	_freq = 1200;
 	_programmed = false;
 	_display->_vm = this;
 	_pressed_key = 0x10U; // An invalid key value sentinel.
+}
+
+
+void Chip8::clear_state() {
+	_pc = _Prog_Start;
+	_sp = 0;
+	_index = 0;
+	_delay = 0;
+	_sound = 0;
+	_sounding = false;
+	_crashed = false;
+	_programmed = false;
+	_can_draw = true;
+	_key_wait = false;
+	_time_budget = _TimeType();
+	_timer = _TimeType();
+	memset(&_gprf,   0, sizeof(_gprf)   );
+	memset(&_mem,    0, sizeof(_mem)    );
+	memset(&_screen, 0, sizeof(_screen) );
 }
 
 
@@ -147,28 +182,12 @@ void Chip8::load_program(std::string& program) {
 		throw std::invalid_argument("Program is too large.");
 	
 	_access_lock.lock();
-
-	// Zero initialize memory and registers. Load the font.
-	memset(&_mem, 0, sizeof(_mem));
-	memset(&_screen, 0, sizeof(_screen));
+	clear_state();
+	// Load the font.
 	memcpy(&_mem[FONT_OFF], FONT, sizeof(FONT));
-	memset(&_gprf, 0, sizeof(_gprf));
-	_sp = 0;
-	_pc = _Prog_Start;
-	_index = 0;
-	_delay = 0;
-	_sound = 0;
-	
 	// Copy the program into memory.
 	memcpy(&_mem[_Prog_Start], (void*) program.data(), program.length());
-
-	// Set VM data to defaults.
-	_crashed = false;
 	_programmed = true;
-	_can_draw = true;
-	_key_wait = false;
-	_sounding = false;
-
 	_access_lock.unlock();
 }
 

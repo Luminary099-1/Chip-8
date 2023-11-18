@@ -31,10 +31,6 @@ public:
 	typedef std::chrono::nanoseconds _TimeType;
 	// The number of nanoseconds in a second.
 	static constexpr long long _billion {1000000000U};
-	// Stream insertion operator override.
-	friend std::ostream& operator<<(std::ostream& os, Chip8& st);
-	// Stream extraction operator override.
-	friend std::istream& operator>>(std::istream& is, Chip8& st);
 
 protected:
 	uint16_t	_pc {0};					// Program counter.
@@ -69,11 +65,13 @@ public:
 	 * VM.
 	 * @param snd A reference to the sound output delegate to be used by this
 	 * VM.
-	 * @param msg A reference to the error handling delegate to be used by this
-	 * VM.
 	 */
-	Chip8(Chip8Keyboard* key, Chip8Display* disp,
-		Chip8Sound* snd, Chip8Message* msg);
+	Chip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd);
+
+	/**
+	 * @brief Initializes the VM's state to be empty (unprogrammed).
+	 */
+	void clear_state();
 
 	/**
 	 * @brief Loads in the passed program and initializes the VM to run from its
@@ -86,6 +84,27 @@ public:
 	 * each instruction being two bytes with nothing in between each.
 	 */
 	void load_program(std::string& program);
+
+	/**
+	 * @brief Stream insertion operator override.
+	 * 
+	 * @param os The output stream to write to.
+	 * @param st The instance of Chip8 whose state will be output.
+	 * @return std::ostream& The output stream written to.
+	 * @throws std::ios_base::failure if an error occurs while writing.
+	 */
+	friend std::ostream& operator<<(std::ostream& os, Chip8& st);
+
+	/**
+	 * @brief Stream extraction operator override.
+	 * 
+	 * @param is The input stream to read from.
+	 * @param st The instance of Chip8 whose state will be overwritten.
+	 * @return std::istream& The input stread read from.
+	 * @throws std::ios_base::failure if the end of the stream is encountered
+	 * early or an error occurs while reading.
+	 */
+	friend std::istream& operator>>(std::istream& is, Chip8& st);
 
 	/**
 	 * @return true if the VM crashed; false otherwise.
@@ -166,7 +185,6 @@ protected:
 	Chip8Keyboard*	_keyboard;	// Handles input (keyboard).
 	Chip8Display*	_display;	// Handles output (screen).
 	Chip8Sound*		_speaker;	// Handles output (sound).
-	Chip8Message*	_error;		// Received error notifications.
 	uint16_t		_freq;		// Instruction cycle frequency (default 500Hz).
 	std::mutex	_access_lock;	// Protects asynchronous access.
 	uint8_t		_pressed_key;	// The key value waiting to be released.

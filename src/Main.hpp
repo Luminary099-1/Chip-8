@@ -99,8 +99,7 @@ public:
 /**
  * @brief Frame class for the primary window UI of the emulator.
  */
-class MainFrame: public wxFrame, public Chip8Keyboard,
-	public Chip8Sound, public Chip8Message {
+class MainFrame: public wxFrame, public Chip8Keyboard, public Chip8Sound {
 public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
@@ -137,13 +136,6 @@ private:
 	 * @brief 
 	 */
 	void stop_sound() override;
-
-	/**
-	 * @brief 
-	 * 
-	 * @param what 
-	 */
-	void crashed(const char* what) override;
 
 	/**
 	 * @brief Handles instances where the user presses a key on the keyboard. If
