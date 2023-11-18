@@ -268,7 +268,7 @@ void MainFrame::on_open(wxCommandEvent& event) {
 		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
 	}
 	
-	SetStatusText("Idle");
+	SetStatusText("Idle.");
 	_screen->clear_buffer();
 	_screen->mark();
 	SetFocus();

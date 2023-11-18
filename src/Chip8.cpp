@@ -46,6 +46,7 @@ std::ostream& operator<<(std::ostream& os, Chip8& st) {
 	os.write(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
 	os.write(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
 	os.write(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+	os.write(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
 	bool key_wait = st._key_wait;
 	os.write(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
 	os.write(reinterpret_cast<char*>(&st._time_budget), sizeof(st._time_budget));
@@ -66,6 +67,7 @@ std::istream& operator>>(std::istream& is, Chip8& st) {
 	is.read(reinterpret_cast<char*>(&st._sounding), sizeof(st._sounding));
 	is.read(reinterpret_cast<char*>(&st._crashed), sizeof(st._crashed));
 	is.read(reinterpret_cast<char*>(&st._programmed), sizeof(st._programmed));
+	is.read(reinterpret_cast<char*>(&st._can_draw), sizeof(st._can_draw));
 	bool key_wait {0};
 	is.read(reinterpret_cast<char*>(&key_wait), sizeof(key_wait));
 	st._key_wait.store(key_wait);
@@ -163,6 +165,7 @@ void Chip8::load_program(std::string& program) {
 	// Set VM data to defaults.
 	_crashed = false;
 	_programmed = true;
+	_can_draw = true;
 	_key_wait = false;
 	_sounding = false;
 
@@ -242,12 +245,13 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 		_timer -= timer_period;
 		if (_delay != 0) _delay -= 1;
 		if (_sound != 0) _sound -= 1;
-	}
+		_can_draw = true;
+	} else _can_draw = false;
 
 	if (_key_wait) return;
 
 	// Grab and execute the next instruction.
-	if (_pc < _Prog_Start || _pc > _Prog_End)
+	if (_pc < _Prog_Start || _pc > _mem.size())
 		throw new Chip8Error("PC is outside of the program range.");
 
 	uint16_t instruction = get_hword(_pc);
@@ -406,18 +410,21 @@ void Chip8::in_move(Chip8& vm, uint16_t instr) { // 8XY0
 void Chip8::in_or(Chip8& vm, uint16_t instr) { // 8XY1
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] | vm._gprf[instr_c(instr)];
+	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
 void Chip8::in_and(Chip8& vm, uint16_t instr) { // 8XY2
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] & vm._gprf[instr_c(instr)];
+	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
 void Chip8::in_xor(Chip8& vm, uint16_t instr) { // 8XY3
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] ^ vm._gprf[instr_c(instr)];
+	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
@@ -488,13 +495,18 @@ void Chip8::in_rand(Chip8& vm, uint16_t instr) { // CXNN
 }
 
 
-// TODO: Consider trying to simplify this function.
 void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
+	// Only draw just after a "screen refresh" (prevented V-tearing originally).
+	if (!vm._can_draw) {
+		vm._pc -= 2;
+		return;
+	}
+
 	vm._gprf[0xf] = 0x00; // Assume no overwrite for now.
-	// Grab the sprite coordinates, number of lines to draw, and the x shift..
-	uint8_t xpos { vm._gprf[instr_b(instr)] };
- 	uint8_t ypos { vm._gprf[instr_c(instr)] };
-	int y_max  { std::min(static_cast<int>(instr_d(instr)), 32 - ypos) };
+	// Grab the sprite coordinates, number of lines to draw, and the x shift.
+	uint8_t xpos { vm._gprf[instr_b(instr)] % 64U };
+ 	uint8_t ypos { vm._gprf[instr_c(instr)] % 32U };
+	int y_max { std::min(static_cast<int>(instr_d(instr)), 32 - ypos) };
 	int x_shift {56 - xpos};
 
 	// Iterate over each line of the sprite.
@@ -507,7 +519,7 @@ void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 		// Determine the new screen line.
 		uint64_t new_line {vm._screen.at(ypos + y) ^ spr_line};
 		// Set the flag if an overrite happened.
-		if (vm._screen.at(ypos + y) & ~new_line != 0x0) vm._gprf[0xf] = 0x01;
+		if (vm._screen.at(ypos + y) & spr_line) vm._gprf[0xf] = 0x01;
 		// Update the screen memory with the new line.
 		vm._screen.at(ypos + y) = new_line;
 	}

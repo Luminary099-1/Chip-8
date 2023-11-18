@@ -30,7 +30,7 @@ public:
 	// Type of std::chrono::duration to store the duration of execution.
 	typedef std::chrono::nanoseconds _TimeType;
 	// The number of nanoseconds in a second.
-	static constexpr long long _billion = 1000000000U;
+	static constexpr long long _billion {1000000000U};
 	// Stream insertion operator override.
 	friend std::ostream& operator<<(std::ostream& os, Chip8& st);
 	// Stream extraction operator override.
@@ -42,10 +42,11 @@ protected:
 	uint16_t	_index {0};					// Memory index register.
 	uint8_t		_delay {0};					// Delay timer.
 	uint8_t		_sound {0};					// Sound timer.
-	bool		_sounding {false};			// True if sound is playing.
-	bool		_crashed {false};			// True if the VM crashed.
-	bool		_programmed;				// True if a program is loaded.
-	std::atomic<bool> _key_wait {false};	// True if in_keyd is waiting.
+	bool		_sounding {false};			// Set if sound is playing.
+	bool		_crashed {false};			// Set if the VM crashed.
+	bool		_programmed {false};		// Set if a program is loaded.
+	bool		_can_draw {true};			// Set just after a "screen refesth".
+	std::atomic<bool> _key_wait {false};	// Set if in_keyd is waiting.
 	_TimeType	_time_budget {0};			// Time available to execute cycles.
 	_TimeType	_timer {0};					// Duration remaining for timers.
 	std::array<uint8_t, 16>		_gprf;		// General purpose register file.
@@ -54,11 +55,9 @@ protected:
 
 public:
 	// First address of the program space in Chip-8 memory.
-	static constexpr uint16_t _Prog_Start = 0x200;
-	// Last address of the program space in Chip-8 memory.
-	static constexpr uint16_t _Prog_End = 0xe8f;
+	static constexpr uint16_t _Prog_Start {0x200};
 	// Largest legal program size.
-	static constexpr uint16_t _Max_Prog_Size = _Prog_End - _Prog_Start;
+	static constexpr uint16_t _Max_Prog_Size {sizeof(_mem) - _Prog_Start};
 
 	/**
 	 * @brief Construct a new Chip-8 VM. A program will have to be loaded or a
@@ -173,7 +172,7 @@ protected:
 	uint8_t		_pressed_key;	// The key value waiting to be released.
 	
 	// VM font memory offset.
-	static constexpr uint16_t FONT_OFF {24};
+	static constexpr uint16_t FONT_OFF {32};
 	// VM font data.
 	static constexpr uint8_t FONT[80] {
 		0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
