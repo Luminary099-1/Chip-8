@@ -129,7 +129,7 @@ public:
 	 * @param elapsed_time The number of miliseconds to run the emulation
 	 * forward.
 	 */
-	void run(_TimeType elapsed_time);
+	void execute_batch(_TimeType elapsed_time);
 
 	/**
 	 * @return The current emulation instruction cycle frequency in Hz. 
@@ -181,18 +181,20 @@ public:
 protected:
 	// Type of instruction implementing functions.
 	typedef void (*_InstrFunc) (Chip8& vm, uint16_t instruction);
+	// Invalid key sentinel.
+	static constexpr uint8_t _no_key {0x10};
 
 	Chip8Keyboard*	_keyboard;	// Handles input (keyboard).
 	Chip8Display*	_display;	// Handles output (screen).
 	Chip8Sound*		_speaker;	// Handles output (sound).
-	uint16_t		_freq;		// Instruction cycle frequency (default 500Hz).
+	uint16_t	_freq {1200};	// Instruction cycle frequency.
 	std::mutex	_access_lock;	// Protects asynchronous access.
-	uint8_t		_pressed_key;	// The key value waiting to be released.
+	uint8_t _pressed_key {_no_key}; // The key value waiting to be released.
 	
 	// VM font memory offset.
-	static constexpr uint16_t FONT_OFF {32};
+	static constexpr uint16_t _font_off {32};
 	// VM font data.
-	static constexpr uint8_t FONT[80] {
+	static constexpr uint8_t _font[80] {
 		0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
 		0xf0, 0x10, 0xf0, 0x80, 0xf0,    0xf0, 0x10, 0xf0, 0x10, 0xf0,  // 2, 3
 		0x90, 0x90, 0xf0, 0x10, 0x10,    0xf0, 0x80, 0xf0, 0x10, 0xf0,  // 4, 5
@@ -219,12 +221,17 @@ protected:
 	 * @param instruction A Chip-8 instruction.
 	 * @return A pointer to the instruction implementing function that
 	 * corresponds to the passed instruction.
+	 * @throws Chip8Error if the passed instruction is not a valid Chip-8
+	 * instruction.
 	 */
 	static _InstrFunc get_instr_func(uint16_t instruction);
 
 	/**
 	 * @brief Executes the next Chip-8 instruction cycles, given the state of
 	 * the VM.
+	 * @param cycle_time The amount of time that will pass over the execution of
+	 * this cycle.
+	 * @throws Chip8Error If a cycle could not be executed.
 	 */
 	void execute_cycle(_TimeType cycle_time);
 

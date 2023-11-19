@@ -182,6 +182,7 @@ MainFrame::MainFrame(bool& sound_exists)
 	Bind(wxEVT_MENU, &MainFrame::on_set_color, this, ID_EMU_SET_BACK);
 	Bind(wxEVT_MENU, &MainFrame::on_about, this, wxID_ABOUT);
 	Bind(wxEVT_MENU, &MainFrame::on_exit, this, wxID_EXIT);
+	Bind(wxEVT_THREAD, &MainFrame::on_crash, this, ID_VM_CRASH);
 	Bind(wxEVT_CLOSE_WINDOW, &MainFrame::on_close, this, wxID_ANY);
 	// Initialize the keyboard key states.
 	for (int i = 0; i < 16; ++i) _key_states[i] = false;
@@ -382,6 +383,14 @@ void MainFrame::on_close(wxCloseEvent& event) {
 }
 
 
+void MainFrame::on_crash(wxThreadEvent& event) {
+	_running = true;
+	stop_vm();
+	_runner.detach();
+	_runner = std::thread(&MainFrame::run_vm, this);
+}
+
+
 void MainFrame::close() {
 	_die = true;
 	start_vm();
@@ -406,11 +415,26 @@ void MainFrame::run_vm(MainFrame* frame) {
 	while (true) {
 		Chip8::_TimeType start_time {clock::now().time_since_epoch()};
 		frame->_run_lock.lock();
+
 		if (frame->_die) {
 			frame->_run_lock.unlock();
 			break;
 		}
-		frame->_vm->run(batch_period);
+
+		try {
+			frame->_vm->execute_batch(batch_period);
+		} catch (Chip8Error& e) {
+			frame->_run_lock.unlock();
+			wxThreadEvent* evt {new wxThreadEvent(wxEVT_THREAD, ID_VM_CRASH)};
+			frame->QueueEvent(evt);
+			std::string msg {"The VM has crashed with the following error: "};
+			msg.append(e.what());
+			wxMessageDialog errorDialog(frame, msg, "Error",
+			wxOK | wxICON_ERROR | wxCENTRE);
+			errorDialog.ShowModal();
+			break;
+		}
+
 		frame->_run_lock.unlock();
 		Chip8::_TimeType delta {clock::now().time_since_epoch() - start_time};
 		Chip8::_TimeType sleep_period {batch_period - delta};
@@ -422,6 +446,13 @@ void MainFrame::run_vm(MainFrame* frame) {
 
 void MainFrame::start_vm() {
 	if (_running) return;
+	if (_vm->is_crashed() && !_die) {
+		wxMessageDialog errorDialog(this,
+			"The VM has crashed and cannot be restarted.", "Error",
+			wxOK | wxICON_ERROR | wxCENTRE);
+		errorDialog.ShowModal();
+		return;
+	}
 	_run_lock.unlock();
 	_running = true;
 	show_running_status();

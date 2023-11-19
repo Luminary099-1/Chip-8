@@ -27,7 +27,8 @@ enum {
 	ID_EMU_STOP,
 	ID_EMU_SET_FREQ,
 	ID_EMU_SET_FORE,
-	ID_EMU_SET_BACK
+	ID_EMU_SET_BACK,
+	ID_VM_CRASH
 };
 
 
@@ -239,6 +240,14 @@ private:
 	 * border.
 	 */
 	void on_close(wxCloseEvent& event);
+
+	/**
+	 * @brief Handles crashes in the virtual machine.
+	 * 
+	 * @param event The event produced by the runner thread to indicate the VM
+	 * has crashed.
+	 */
+	void on_crash(wxThreadEvent& event);
 
 	/**
 	 * @brief Closes the application by making the runner thread exit and

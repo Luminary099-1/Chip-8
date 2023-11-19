@@ -38,6 +38,7 @@ constexpr uint8_t Chip8::instr_imm(uint16_t instruction) {
 
 
 std::ostream& operator<<(std::ostream& os, Chip8& st) {
+	st._access_lock.lock();
 	std::ios_base::iostate prev_state = os.exceptions();
 	os.exceptions(std::istream::failbit);
 	try {
@@ -59,14 +60,17 @@ std::ostream& operator<<(std::ostream& os, Chip8& st) {
 		os.write(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
 	} catch (std::ios_base::failure& e) {
 		os.exceptions(prev_state);
+		st._access_lock.unlock();
 		throw e;
 	}
 	os.exceptions(prev_state);
+	st._access_lock.unlock();
 	return os;
 }
 
 
 std::istream& operator>>(std::istream& is, Chip8& st) {
+	st._access_lock.lock();
 	std::ios_base::iostate prev_state = is.exceptions();
 	is.exceptions(std::istream::eofbit | std::istream::failbit);
 	try {
@@ -90,9 +94,11 @@ std::istream& operator>>(std::istream& is, Chip8& st) {
 	} catch (std::ios_base::failure& e) {
 		st.clear_state();
 		is.exceptions(prev_state);
+		st._access_lock.unlock();
 		throw e;
 	}
 	is.exceptions(prev_state);
+	st._access_lock.unlock();
 	return is;
 }
 
@@ -150,10 +156,7 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 
 Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd)
 	: _keyboard(key), _display(disp), _speaker(snd) {
-	_freq = 1200;
-	_programmed = false;
 	_display->_vm = this;
-	_pressed_key = 0x10U; // An invalid key value sentinel.
 }
 
 
@@ -184,7 +187,7 @@ void Chip8::load_program(std::string& program) {
 	_access_lock.lock();
 	clear_state();
 	// Load the font.
-	memcpy(&_mem[FONT_OFF], FONT, sizeof(FONT));
+	memcpy(&_mem[_font_off], _font, sizeof(_font));
 	// Copy the program into memory.
 	memcpy(&_mem[_Prog_Start], (void*) program.data(), program.length());
 	_programmed = true;
@@ -234,7 +237,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	// Catch and rethrow invalid instruction accesses.
 	} catch (std::out_of_range& e) {
 		std::stringstream msg;
-		msg << "Invalid instruction: "
+		msg << "Invalid Chip-8 instruction: "
 			<< std::uppercase << std::hex << instruction;
 		throw Chip8Error(msg.str());
 	}
@@ -242,15 +245,25 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
-void Chip8::run(_TimeType elapsed_time) {
+void Chip8::execute_batch(_TimeType elapsed_time) {
+	if (_crashed) throw new Chip8Error("VM has already crashed.");
+
 	_access_lock.lock();
 	_TimeType cycle_period {_billion / _freq};
 	_time_budget += elapsed_time;
 	_TimeType cycles {_time_budget / cycle_period.count()};
 
-	for (int64_t i {0}; i < cycles.count(); ++i) execute_cycle(cycle_period);
+	try {
+		for (int64_t i {0}; i < cycles.count(); ++i) {
+			execute_cycle(cycle_period);
+			_time_budget -= cycle_period;
+		}
+	} catch (Chip8Error& e) {
+		_access_lock.unlock();
+		_crashed = true;
+		throw e;
+	}
 	
-	_time_budget -= cycles * cycle_period.count();
 	_access_lock.unlock();
 }
 
@@ -261,6 +274,7 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
 	if (_timer >= timer_period) {
+		// TODO: Figure out what to do if more than one cycle passes.
 		_timer -= timer_period;
 		if (_delay != 0) _delay -= 1;
 		if (_sound != 0) _sound -= 1;
@@ -355,7 +369,7 @@ void Chip8::key_released(uint8_t key) {
 	if (key > 0xf) throw new std::domain_error("Key value too large.");
 	if (key != _pressed_key) return;
 	_key_wait = false;
-	_pressed_key = 0x10;
+	_pressed_key = _no_key;
 }
 
 
@@ -389,7 +403,7 @@ void Chip8::in_jump(Chip8& vm, uint16_t instr) { // 1NNN
 
 
 void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
-	if (vm._sp >= FONT_OFF - 1) throw Chip8Error("VM call stack overflow.");
+	if (vm._sp >= _font_off - 1) throw Chip8Error("VM call stack overflow.");
 	vm.set_hword(vm._sp, vm._pc);
 	vm._sp += 2;
 	vm._pc = instr_addr(instr);
@@ -582,7 +596,7 @@ void Chip8::in_addi(Chip8& vm, uint16_t instr) { // FX1E
 
 
 void Chip8::in_ldspr(Chip8& vm, uint16_t instr) { // FX29
-	vm._index = FONT_OFF + vm._gprf[instr_b(instr)] * 5;
+	vm._index = _font_off + vm._gprf[instr_b(instr)] * 5;
 }
 
 
