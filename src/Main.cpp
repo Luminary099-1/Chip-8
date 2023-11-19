@@ -238,13 +238,12 @@ void MainFrame::on_key_down(wxKeyEvent& event) {
 }
 
 
-// TODO: Add file extention recognition.
 void MainFrame::on_open(wxCommandEvent& event) {
 	stop_vm();
 
 	// Construct a dialog to select the file path to open.
 	wxFileDialog openDialog(this, "Load Chip-8 Program", "", "",
-		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
+		"Chip-8 ROMs (*.ch8)|*.ch8|All files (*.*)|*.*", wxFD_OPEN);
 	// Return if the user doesn't select a file.
 	if (openDialog.ShowModal() == wxID_CANCEL) return;
 	// Grab the selected file path.
@@ -269,11 +268,10 @@ void MainFrame::on_open(wxCommandEvent& event) {
 }
 
 
-// TODO: Add file extention recognition.
 void MainFrame::on_save(wxCommandEvent& event) {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
-		wxFileSelectorDefaultWildcardStr, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		"Save state files (*.state8)|*.state8|All files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() == wxID_CANCEL) return;
 
@@ -294,13 +292,12 @@ void MainFrame::on_save(wxCommandEvent& event) {
 }
 
 
-// TODO: Add file extention recognition.
 void MainFrame::on_load(wxCommandEvent& event) {
 	stop_vm();
 
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Open Chip-8 State", "", "",
-		wxFileSelectorDefaultWildcardStr, wxFD_OPEN);
+		"Save state files (*.state8)|*.state8|All files (*.*)|*.*", wxFD_OPEN);
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() == wxID_CANCEL) return;
 
