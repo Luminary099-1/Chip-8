@@ -274,10 +274,10 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
 	if (_timer >= timer_period) {
-		// TODO: Figure out what to do if more than one cycle passes.
-		_timer -= timer_period;
-		if (_delay != 0) _delay -= 1;
-		if (_sound != 0) _sound -= 1;
+		long long timer_pulses {_timer.count() / timer_period.count()};
+		_timer %= timer_period;
+		if (_delay != 0) _delay -= timer_pulses;
+		if (_sound != 0) _sound -= timer_pulses;
 		_can_draw = true;
 	} else _can_draw = false;
 
