@@ -1,8 +1,10 @@
 #include "Main.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <iostream>
+#include <climits>
 #include <sstream>
 #include <wx/colordlg.h>
 #include <wx/msgdlg.h>
@@ -22,26 +24,54 @@ const std::map<wxChar, uint8_t> key_map = {
 };
 
 
+/**
+ * @brief Creates a 1 second sample of a triangle wave at the specified sample
+ * rate with a pitch of 440Hz.
+ * 
+ * @param sample_rate The number of samples to use in creating the sound.
+ * @return int16_t* A malloc allocated array of samples.
+ */
+int16_t* make_triangle_samples(int sample_rate) {
+	static constexpr double pitch {440.0};
+	double temp;
+	int16_t* samples
+		{static_cast<int16_t*>(malloc(sample_rate * sizeof(int16_t)))};
+
+	for (int i {0}; i < sample_rate; ++i) {
+		double x {std::modf((pitch * i) / sample_rate, &temp)};
+		double sample = (std::modf(x / 2, &temp))
+			? 2 * x - 1
+			: -2 * x - 1;
+		samples[i] = static_cast<int16_t>(SHRT_MAX * sample);
+	}
+
+	return samples;
+}
+
+
 bool Chip8CPP::OnInit() {
-	// _error_file.open(".\\errorlog.txt");
+	// _error_file.open("./errorlog.txt");
 	_old_error_buf = std::cerr.rdbuf();
 	// std::cerr.rdbuf(_error_file.rdbuf());
-	bool sound_exists;
-	_frame = new MainFrame(sound_exists);
-	if (!sound_exists) {
-		wxMessageDialog errorDialog(nullptr, "Unable to open sound file.",
-			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
-		errorDialog.ShowModal();
-		_frame->Close();
+	int sample_rate {16'000};
+	int16_t* samples = make_triangle_samples(sample_rate);
+	if (!_beep_buf.loadFromSamples(samples, sample_rate, 1, sample_rate)); {
+		wxMessageBox("Unable to prepare sound resource.",
+			"Error", wxOK | wxICON_ERROR | wxCENTRE, nullptr);
 		return false;
 	}
-	_frame->Show(true);
+	delete samples;
+	_beep = new sf::Sound(_beep_buf);
+	_beep->setLoop(true);
+	_frame = new MainFrame(_beep);
+	_frame->Show();
 	return true;
 }
 
 
 int Chip8CPP::OnExit() {
 	std::cerr.rdbuf(_old_error_buf);
+	delete _beep;
 	return 0;
 }
 
@@ -128,8 +158,11 @@ void Chip8ScreenPanel::publish_buffer() {
 }
 
 
-MainFrame::MainFrame(bool& sound_exists)
+MainFrame::MainFrame(sf::Sound* beep_sound)
 : wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
+	// Set up the sound display for the VM.
+	_beep = beep_sound;
+	_screen = new Chip8ScreenPanel(this);
 	// Set up the "File" menu dropdown.
 	wxMenu* menu_file = new wxMenu;
 	menu_file->Append(
@@ -162,10 +195,6 @@ MainFrame::MainFrame(bool& sound_exists)
 	SetMenuBar(menuBar);
 	CreateStatusBar();
 	SetStatusText("No program loaded, idle.");
-	// Set up the sound display for the VM.
-	_sound = new wxSound("500.wav", false);
-	sound_exists = _sound->IsOk();
-	_screen = new Chip8ScreenPanel(this);
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 	sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
 	SetSizer(sizer);
@@ -205,12 +234,12 @@ bool MainFrame::test_key(uint8_t key) {
 
 
 void MainFrame::start_sound() {
-	_sound->Play(wxSOUND_ASYNC | wxSOUND_LOOP);
+	_beep->play();
 }
 
 
 void MainFrame::stop_sound() {
-	_sound->Stop();
+	_beep->stop();
 }
 
 
@@ -451,6 +480,7 @@ void MainFrame::start_vm() {
 		return;
 	}
 	_run_lock.unlock();
+	if (_vm->is_sounding()) _beep->play();
 	_running = true;
 	show_running_status();
 }
@@ -458,6 +488,7 @@ void MainFrame::start_vm() {
 
 void MainFrame::stop_vm() {
 	if (!_running) return;
+	_beep->pause();
 	_run_lock.lock();
 	_running = false;
 	SetStatusText("Idle.");

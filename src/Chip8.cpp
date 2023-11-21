@@ -302,7 +302,7 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	if (_sounding && _sound == 0) {
 		_speaker->stop_sound();
 		_sounding = false;
-	} else if (_sound >= 2) {
+	} else if (!_sounding && _sound >= 2) {
 		_speaker->start_sound();
 		_sounding = true;
 	}

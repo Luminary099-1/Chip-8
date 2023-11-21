@@ -1,14 +1,12 @@
 #pragma once
 
 #include "Chip8.hpp"
-
 #include <atomic>
 #include <mutex>
 #include <fstream>
 #include <thread>
-
+#include <SFML/Audio.hpp>
 // For compilers that support precompilation, includes "wx/wx.h".
-#include <wx/sound.h>
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
 	#include <wx/wx.h>
@@ -105,10 +103,9 @@ public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
 	 * 
-	 * @param sound_exists Will be set by the constructor to indicate if the
-	 * "500.wav" sound file was successfully loaded.
+	 * @param beep_sound The sound that will be used to produce the Chip-8 tone.
 	 */
-	MainFrame(bool& sound_exists);
+	MainFrame(sf::Sound* beep_sound);
 
 private:
 	Chip8* 				_vm;		// Chip-8 VM.
@@ -117,24 +114,25 @@ private:
 	bool				_running;	// Indicates the the VM is running.
 	std::atomic<bool>	_die;		// Indicates the thread should exit.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
-	wxSound*			_sound;		// Emits the tone played by the Chip-8 VM.
+	sf::Sound*			_beep;		// Emits the tone played by the Chip-8 VM.
 	std::map<uint8_t, bool> _key_states; // Stores the state of each Chip-8 key.
 
 	/**
-	 * @brief 
+	 * @brief Test if the specifed key is currently pressed.
 	 * 
-	 * @param key 
-	 * @return 
+	 * @param key A hexadecimal key value to test.
+	 * @return true if the key is pressed; false otherwise.
+	 * 
 	 */
 	bool test_key(uint8_t key) override;
 
 	/**
-	 * @brief 
+	 * @brief Start producing a tone for the VM.
 	 */
 	void start_sound() override;
 
 	/**
-	 * @brief 
+	 * @brief Stop producing a tone for the VM.
 	 */
 	void stop_sound() override;
 
@@ -288,6 +286,8 @@ class Chip8CPP : public wxApp {
 	MainFrame* _frame;
 	std::ofstream _error_file;
 	std::streambuf* _old_error_buf;
+	sf::SoundBuffer _beep_buf;
+	sf::Sound* _beep;
 	
 public:
 	/**
