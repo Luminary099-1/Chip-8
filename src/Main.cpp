@@ -1,10 +1,8 @@
 #include "Main.hpp"
 
 #include <chrono>
-#include <cmath>
 #include <fstream>
 #include <iostream>
-#include <climits>
 #include <sstream>
 #include <wx/colordlg.h>
 #include <wx/msgdlg.h>
@@ -24,43 +22,17 @@ const std::map<wxChar, uint8_t> key_map = {
 };
 
 
-/**
- * @brief Creates a 1 second sample of a triangle wave at the specified sample
- * rate with a pitch of 440Hz.
- * 
- * @param sample_rate The number of samples to use in creating the sound.
- * @return int16_t* A malloc allocated array of samples.
- */
-int16_t* make_triangle_samples(int sample_rate) {
-	static constexpr double pitch {440.0};
-	double temp;
-	int16_t* samples
-		{static_cast<int16_t*>(malloc(sample_rate * sizeof(int16_t)))};
-
-	for (int i {0}; i < sample_rate; ++i) {
-		double x {std::modf((pitch * i) / sample_rate, &temp)};
-		double sample = (std::modf(x / 2, &temp))
-			? 2 * x - 1
-			: -2 * x - 1;
-		samples[i] = static_cast<int16_t>(SHRT_MAX * sample);
-	}
-
-	return samples;
-}
-
-
 bool Chip8CPP::OnInit() {
-	// _error_file.open("./errorlog.txt");
+	// _error_file.open(".\\errorlog.txt");
 	_old_error_buf = std::cerr.rdbuf();
 	// std::cerr.rdbuf(_error_file.rdbuf());
-	int sample_rate {16'000};
-	int16_t* samples = make_triangle_samples(sample_rate);
-	if (!_beep_buf.loadFromSamples(samples, sample_rate, 1, sample_rate)); {
-		wxMessageBox("Unable to prepare sound resource.",
-			"Error", wxOK | wxICON_ERROR | wxCENTRE, nullptr);
+	if (!_beep_buf.loadFromFile("./440T.wav")) {
+		wxMessageDialog errorDialog(nullptr, "Unable to open sound file.",
+			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
+		errorDialog.ShowModal();
 		return false;
 	}
-	delete samples;
+
 	_beep = new sf::Sound(_beep_buf);
 	_beep->setLoop(true);
 	_frame = new MainFrame(_beep);
