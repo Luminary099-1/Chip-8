@@ -10,7 +10,8 @@ class Chip8;
 /**
  * @brief Delegate to handle keyboard input for the Chip-8 VM.
  */
-struct Chip8Keyboard {
+struct Chip8Keyboard
+{
 	/**
 	 * @brief Test if a key for the VM is currently pressed.
 	 * 
@@ -24,7 +25,8 @@ struct Chip8Keyboard {
 /**
  * @brief Delegate to handle display output for the Chip-8 VM.
  */
-class Chip8Display {
+class Chip8Display
+{
 protected:
 	friend class Chip8;
 
@@ -47,7 +49,8 @@ public:
 /**
  * @brief Delegate to handle sound output for the Chip-8 VM.
  */
-struct Chip8Sound {
+struct Chip8Sound
+{
 	/**
 	 * @brief Called if the VM is to start emitting sound.
 	 */

@@ -10,7 +10,8 @@
 
 
 // Maps wxWidget key input characters to numerical values for the Chip-8 VM.
-const std::map<wxChar, uint8_t> key_map = {
+const std::map<wxChar, uint8_t> key_map
+{
 	{'x', 0x0},		{'1', 0x1},
 	{'2', 0x2},		{'3', 0x3},
 	{'Q', 0x4},		{'W', 0x5},
@@ -22,11 +23,13 @@ const std::map<wxChar, uint8_t> key_map = {
 };
 
 
-bool Chip8CPP::OnInit() {
+bool Chip8CPP::OnInit()
+{
 	// _error_file.open(".\\errorlog.txt");
 	_old_error_buf = std::cerr.rdbuf();
 	// std::cerr.rdbuf(_error_file.rdbuf());
-	if (!_beep_buf.loadFromFile("./440T.wav")) {
+	if (!_beep_buf.loadFromFile("./440T.wav"))
+	{
 		wxMessageDialog errorDialog(nullptr, "Unable to open sound file.",
 			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
 		errorDialog.ShowModal();
@@ -41,14 +44,17 @@ bool Chip8CPP::OnInit() {
 }
 
 
-int Chip8CPP::OnExit() {
+int Chip8CPP::OnExit()
+{
 	std::cerr.rdbuf(_old_error_buf);
 	delete _beep;
 	return 0;
 }
 
 
-Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
+Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent)
+	: wxPanel(parent)
+{
 	SetSize(2, 1); // Set the size to enforce the aspect ratio.
 	// Initialize the data structures for the screen image.
 	_image_buf = (uint8_t*) calloc(64 * 32, 3);
@@ -60,19 +66,29 @@ Chip8ScreenPanel::Chip8ScreenPanel(wxFrame* parent) : wxPanel(parent) {
 }
 
 
-Chip8ScreenPanel::~Chip8ScreenPanel() {
+Chip8ScreenPanel::~Chip8ScreenPanel()
+{
 	delete _image;
 }
 
 
-void Chip8ScreenPanel::mark() {
+bool Chip8ScreenPanel::AcceptsFocus() const
+{
+	return false;
+}
+
+
+void Chip8ScreenPanel::mark()
+{
 	_update = true;
 	Refresh(false); // Causes EVT_PAINT to be fired (handled by paint_event).
 }
 
 
-void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
-	if (_update) {
+void Chip8ScreenPanel::paint_event(wxPaintEvent& e)
+{
+	if (_update)
+	{
 		publish_buffer();
 		_update = false;
 	}
@@ -87,15 +103,18 @@ void Chip8ScreenPanel::paint_event(wxPaintEvent& e) {
 }
 
 
-void Chip8ScreenPanel::on_size(wxSizeEvent& event) {
+void Chip8ScreenPanel::on_size(wxSizeEvent& event)
+{
 	Refresh(false); // Causes EVT_PAINT to be fired (handled by paint_event).
 	event.Skip();
 }
 
 
-void Chip8ScreenPanel::clear_buffer() {
+void Chip8ScreenPanel::clear_buffer()
+{
 	size_t i {0};
-	while (i < sizeof(_image_buf)) {
+	while (i < sizeof(_image_buf))
+	{
 		_image_buf[i++] = _backR;
 		_image_buf[i++] = _backG;
 		_image_buf[i++] = _backB;
@@ -103,21 +122,27 @@ void Chip8ScreenPanel::clear_buffer() {
 }
 
 
-void Chip8ScreenPanel::publish_buffer() {
+void Chip8ScreenPanel::publish_buffer()
+{
 	uint64_t* screen {_vm->get_screen_buf()};
 	size_t offset {0}; // The image buffer offset.
 
 	// Iterate over the VM's screen.
-	for (int y {0}; y < 32; ++y) {
+	for (int y {0}; y < 32; ++y)
+	{
 		// Initialize a mask to test pixels in the screen.
 		uint64_t mask {1ULL << 63};
-		for (int x {0}; x < 64; ++x) {
+		for (int x {0}; x < 64; ++x)
+		{
 			// Set the values in the buffer.
-			if (mask & screen[y]) {
+			if (mask & screen[y])
+			{
 				_image_buf[offset++] = _foreR;
 				_image_buf[offset++] = _foreG;
 				_image_buf[offset++] = _foreB;
-			} else {
+			}
+			else
+			{
 				_image_buf[offset++] = _backR;
 				_image_buf[offset++] = _backG;
 				_image_buf[offset++] = _backB;
@@ -131,7 +156,8 @@ void Chip8ScreenPanel::publish_buffer() {
 
 
 MainFrame::MainFrame(sf::Sound* beep_sound)
-: wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator") {
+	: wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator")
+{
 	// Set up the sound display for the VM.
 	_beep = beep_sound;
 	_screen = new Chip8ScreenPanel(this);
@@ -200,46 +226,52 @@ MainFrame::MainFrame(sf::Sound* beep_sound)
 }
 
 
-bool MainFrame::test_key(uint8_t key) {
+bool MainFrame::test_key(uint8_t key)
+{
 	return _key_states.at(key);
 }
 
 
-void MainFrame::start_sound() {
+void MainFrame::start_sound()
+{
 	_beep->play();
 }
 
 
-void MainFrame::stop_sound() {
+void MainFrame::stop_sound()
+{
 	_beep->stop();
 }
 
 
-void MainFrame::on_key_up(wxKeyEvent& event) {
+void MainFrame::on_key_up(wxKeyEvent& event)
+{
 	// Unset the key in the map if it is valid.
-	try {
+	try
+	{
 		uint8_t key_val {key_map.at(event.GetUnicodeKey())};
 		_key_states[key_val] = false;
 		_vm->key_released(key_val);
-	} catch (std::out_of_range& e) {
-		return;
 	}
+	catch (std::out_of_range& e) { return; }
 }
 
 
-void MainFrame::on_key_down(wxKeyEvent& event) {
+void MainFrame::on_key_down(wxKeyEvent& event)
+{
 	// Set the key in the map if it is valid.
-	try {
+	try
+	{
 		uint8_t key_val {key_map.at(event.GetUnicodeKey())};
 		_key_states[key_val] = true;
 		_vm->key_pressed(key_val);
-	} catch (std::out_of_range& e) {
-		return;
 	}
+	catch (std::out_of_range& e) { return; }
 }
 
 
-void MainFrame::on_open(wxCommandEvent& event) {
+void MainFrame::on_open(wxCommandEvent& event)
+{
 	stop_vm();
 
 	// Construct a dialog to select the file path to open.
@@ -256,11 +288,9 @@ void MainFrame::on_open(wxCommandEvent& event) {
 	std::string program {sstr.str()};
 	
 	// Pass the string of the program to the VM.
-	try {
-		_vm->load_program(program);
-	} catch (std::exception& e) {
-		wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER);
-	}
+	try { _vm->load_program(program); }
+	catch (std::exception& e)
+	{ wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER); }
 	
 	SetStatusText("Idle.");
 	_screen->clear_buffer();
@@ -269,7 +299,8 @@ void MainFrame::on_open(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_save(wxCommandEvent& event) {
+void MainFrame::on_save(wxCommandEvent& event)
+{
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
 		"Save state files (*.state8)|*.state8|All files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -279,9 +310,9 @@ void MainFrame::on_save(wxCommandEvent& event) {
 	std::string path {saveDalog.GetPath()};
 	std::ofstream state_file;
 	state_file.open(path, std::ofstream::out | std::ofstream::binary);
-	try {
-		state_file << *_vm;
-	} catch (std::ios_base::failure& e) {
+	try { state_file << *_vm; }
+	catch (std::ios_base::failure& e)
+	{
 		std::string msg {"Failed to save state: "};
 		msg.append(e.what());
 		wxMessageDialog errorDialog(this, msg, "Error Saving State",
@@ -293,7 +324,8 @@ void MainFrame::on_save(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_load(wxCommandEvent& event) {
+void MainFrame::on_load(wxCommandEvent& event)
+{
 	stop_vm();
 
 	// Construct a dialog to select the file path to open.
@@ -304,9 +336,9 @@ void MainFrame::on_load(wxCommandEvent& event) {
 
 	std::string path {saveDalog.GetPath()};
 	std::ifstream state_file(path, std::fstream::binary);
-	try {
-		state_file >> *_vm;
-	} catch (std::ios_base::failure& e) {
+	try { state_file >> *_vm; }
+	catch (std::ios_base::failure& e)
+	{
 		std::string msg {"Failed to load state: "};
 		msg.append(e.what());
 		wxMessageDialog errorDialog(this, msg, "Error Loading State",
@@ -320,8 +352,10 @@ void MainFrame::on_load(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_run(wxCommandEvent& event) {
-	if (!_vm->is_programmed()) {
+void MainFrame::on_run(wxCommandEvent& event)
+{
+	if (!_vm->is_programmed())
+	{
 		wxMessageBox("Unable to start the VM without loading a program.",
 			"Error", wxOK | wxICON_ERROR | wxCENTRE, this);
 		return;
@@ -330,12 +364,14 @@ void MainFrame::on_run(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_stop(wxCommandEvent& event) {
+void MainFrame::on_stop(wxCommandEvent& event)
+{
 	stop_vm();
 }
 
 
-void MainFrame::on_set_freq(wxCommandEvent& event) {
+void MainFrame::on_set_freq(wxCommandEvent& event)
+{
 	// Construct a dialog to select the desired frequency,
 	wxNumberEntryDialog freqDialog(
 		this, "Set Emulation Frequency", "", "", _vm->frequency(), 1, 10000);
@@ -350,17 +386,22 @@ void MainFrame::on_set_freq(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_set_color(wxCommandEvent& event) {
+void MainFrame::on_set_color(wxCommandEvent& event)
+{
 	// Construct a dialog to select the desired color,
 	wxColourDialog colorDialog(this);
 	// If the user accepts, set the forground color.
-	if (colorDialog.ShowModal() != wxID_CANCEL) {
+	if (colorDialog.ShowModal() != wxID_CANCEL)
+	{
 		wxColour c = colorDialog.GetColourData().GetColour();
-		if (event.GetId() == ID_EMU_SET_FORE) {
+		if (event.GetId() == ID_EMU_SET_FORE)
+		{
 			_screen->_foreR = c.GetRed();
 			_screen->_foreG = c.GetGreen();
 			_screen->_foreB = c.GetBlue();
-		} else {
+		}
+		else
+		{
 			_screen->_backR = c.GetRed();
 			_screen->_backG = c.GetGreen();
 			_screen->_backB = c.GetBlue();
@@ -371,17 +412,20 @@ void MainFrame::on_set_color(wxCommandEvent& event) {
 }
 
 
-void MainFrame::on_exit(wxCommandEvent& event) {
+void MainFrame::on_exit(wxCommandEvent& event)
+{
 	close();
 }
 
 
-void MainFrame::on_close(wxCloseEvent& event) {
+void MainFrame::on_close(wxCloseEvent& event)
+{
 	close();
 }
 
 
-void MainFrame::on_crash(wxThreadEvent& event) {
+void MainFrame::on_crash(wxThreadEvent& event)
+{
 	_running = true;
 	stop_vm();
 	_runner.detach();
@@ -389,7 +433,8 @@ void MainFrame::on_crash(wxThreadEvent& event) {
 }
 
 
-void MainFrame::close() {
+void MainFrame::close()
+{
 	_die = true;
 	start_vm();
 	_runner.join();
@@ -398,7 +443,8 @@ void MainFrame::close() {
 }
 
 
-void MainFrame::on_about(wxCommandEvent& event) {
+void MainFrame::on_about(wxCommandEvent& event)
+{
 	// TODO: Finalize the content in this box.
 	wxMessageBox("This program is a virtual machine for the original Chip-8 "
 		"language that most commonly ran on the RCA COSMAC VIP.",
@@ -406,22 +452,25 @@ void MainFrame::on_about(wxCommandEvent& event) {
 }
 
 
-void MainFrame::run_vm(MainFrame* frame) {
+void MainFrame::run_vm(MainFrame* frame)
+{
 	using clock = std::chrono::steady_clock;
 	static constexpr Chip8::_TimeType batch_period {Chip8::_billion / 60U};
 	
-	while (true) {
+	while (true)
+	{
 		Chip8::_TimeType start_time {clock::now().time_since_epoch()};
 		frame->_run_lock.lock();
 
-		if (frame->_die) {
+		if (frame->_die)
+		{
 			frame->_run_lock.unlock();
 			break;
 		}
 
-		try {
-			frame->_vm->execute_batch(batch_period);
-		} catch (Chip8Error& e) {
+		try { frame->_vm->execute_batch(batch_period); }
+		catch (Chip8Error& e)
+		{
 			frame->_run_lock.unlock();
 			wxThreadEvent* evt {new wxThreadEvent(wxEVT_THREAD, ID_VM_CRASH)};
 			frame->QueueEvent(evt);
@@ -442,9 +491,11 @@ void MainFrame::run_vm(MainFrame* frame) {
 }
 
 
-void MainFrame::start_vm() {
+void MainFrame::start_vm()
+{
 	if (_running) return;
-	if (_vm->is_crashed() && !_die) {
+	if (_vm->is_crashed() && !_die)
+	{
 		wxMessageDialog errorDialog(this,
 			"The VM has crashed and cannot be restarted.", "Error",
 			wxOK | wxICON_ERROR | wxCENTRE);
@@ -458,7 +509,8 @@ void MainFrame::start_vm() {
 }
 
 
-void MainFrame::stop_vm() {
+void MainFrame::stop_vm()
+{
 	if (!_running) return;
 	_beep->pause();
 	_run_lock.lock();
@@ -467,7 +519,8 @@ void MainFrame::stop_vm() {
 }
 
 
-void MainFrame::show_running_status() {
+void MainFrame::show_running_status()
+{
 	std::string msg {"VM Running @" + std::to_string(_vm->frequency()) + "Hz."};
 	SetStatusText(msg);
 }

@@ -16,7 +16,8 @@
 /**
  * @brief Enumeration of all events required in the UI.
  */
-enum {
+enum
+{
 	ID_FILE_OPEN = 0,
 	ID_FILE_SAVE,
 	ID_FILE_LOAD,
@@ -30,7 +31,9 @@ enum {
 };
 
 
-class Chip8ScreenPanel : public wxPanel, public Chip8Display {
+class Chip8ScreenPanel
+	: public wxPanel, public Chip8Display
+{
 private:
 	uint8_t*	_image_buf;	// Space to store the image before passing to WX.
 	wxImage*	_image;		// The image that will contain the screen data.
@@ -60,7 +63,7 @@ public:
 	/**
 	 * @return false to prevent this panel from accepting input focus.
 	 */
-	bool AcceptsFocus() const override { return false; }
+	bool AcceptsFocus() const override;
 
 	/**
 	 * @brief Indicates the screen is to be updated and redrawn.
@@ -98,7 +101,9 @@ public:
 /**
  * @brief Frame class for the primary window UI of the emulator.
  */
-class MainFrame: public wxFrame, public Chip8Keyboard, public Chip8Sound {
+class MainFrame
+	: public wxFrame, public Chip8Keyboard, public Chip8Sound
+{
 public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
@@ -282,7 +287,9 @@ private:
 /**
  * @brief App class for the UI of the emulator.
  */
-class Chip8CPP : public wxApp {
+class Chip8CPP
+	: public wxApp
+{
 	MainFrame* _frame;
 	std::ofstream _error_file;
 	std::streambuf* _old_error_buf;

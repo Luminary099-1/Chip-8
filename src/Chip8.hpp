@@ -15,8 +15,9 @@
 /**
  * @brief Standard exception class for errors pertaining to emulation.
  */
-struct Chip8Error : public std::runtime_error {
-	Chip8Error(const std::string& what_arg) : std::runtime_error(what_arg) {}
+struct Chip8Error : public std::runtime_error
+{
+	Chip8Error(const std::string& what_arg);
 };
 
 
@@ -24,9 +25,8 @@ struct Chip8Error : public std::runtime_error {
  * @brief Asynchronous Chip-8 virtual machine. Only compatible with the original
  * Chip-8 language.
  */
-class Chip8 {
-	friend class TestChip8;
-
+class Chip8
+{
 public:
 	// Type of std::chrono::duration to store the duration of execution.
 	typedef std::chrono::nanoseconds _TimeType;
@@ -195,7 +195,8 @@ protected:
 	// VM font memory offset.
 	static constexpr uint16_t _font_off {32};
 	// VM font data.
-	static constexpr uint8_t _font[80] {
+	static constexpr uint8_t _font[80]
+	{
 		0xf0, 0x90, 0x90, 0x90, 0xf0,    0x20, 0x60, 0x20, 0x20, 0x70,  // 0, 1
 		0xf0, 0x10, 0xf0, 0x80, 0xf0,    0xf0, 0x10, 0xf0, 0x10, 0xf0,  // 2, 3
 		0x90, 0x90, 0xf0, 0x10, 0x10,    0xf0, 0x80, 0xf0, 0x10, 0xf0,  // 4, 5

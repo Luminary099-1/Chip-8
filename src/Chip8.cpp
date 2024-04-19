@@ -7,41 +7,54 @@
 #include <stdexcept>
 
 
-constexpr uint8_t Chip8::instr_a(uint16_t instruction) {
+Chip8Error::Chip8Error(const std::string& what_arg)
+	: std::runtime_error(what_arg)
+{}
+
+
+constexpr uint8_t Chip8::instr_a(uint16_t instruction)
+{
 	return (instruction & 0xf000U) >> 12;
 }
 
 
-constexpr uint8_t Chip8::instr_b(uint16_t instruction) {
+constexpr uint8_t Chip8::instr_b(uint16_t instruction)
+{
 	return (instruction & 0x0f00U) >> 8;
 }
 
 
-constexpr uint8_t Chip8::instr_c(uint16_t instruction) {
+constexpr uint8_t Chip8::instr_c(uint16_t instruction)
+{
 	return (instruction & 0x00f0U) >> 4;
 }
 
 
-constexpr uint8_t Chip8::instr_d(uint16_t instruction) {
+constexpr uint8_t Chip8::instr_d(uint16_t instruction)
+{
 	return instruction & 0x000fU;
 }
 
 
-constexpr uint16_t Chip8::instr_addr(uint16_t instruction) {
+constexpr uint16_t Chip8::instr_addr(uint16_t instruction)
+{
 	return instruction & 0x0fffU;
 }
 
 
-constexpr uint8_t Chip8::instr_imm(uint16_t instruction) {
+constexpr uint8_t Chip8::instr_imm(uint16_t instruction)
+{
 	return instruction & 0x00ffU;
 }
 
 
-std::ostream& operator<<(std::ostream& os, Chip8& st) {
+std::ostream& operator<<(std::ostream& os, Chip8& st)
+{
 	st._access_lock.lock();
 	std::ios_base::iostate prev_state = os.exceptions();
 	os.exceptions(std::istream::failbit);
-	try {
+	try
+	{
 		os.write(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
 		os.write(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
 		os.write(reinterpret_cast<char*>(&st._index), sizeof(st._index));
@@ -58,7 +71,9 @@ std::ostream& operator<<(std::ostream& os, Chip8& st) {
 		os.write(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
 		os.write(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
 		os.write(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
-	} catch (std::ios_base::failure& e) {
+	}
+	catch (std::ios_base::failure& e)
+	{
 		os.exceptions(prev_state);
 		st._access_lock.unlock();
 		throw e;
@@ -69,11 +84,13 @@ std::ostream& operator<<(std::ostream& os, Chip8& st) {
 }
 
 
-std::istream& operator>>(std::istream& is, Chip8& st) {
+std::istream& operator>>(std::istream& is, Chip8& st)
+{
 	st._access_lock.lock();
 	std::ios_base::iostate prev_state = is.exceptions();
 	is.exceptions(std::istream::eofbit | std::istream::failbit);
-	try {
+	try
+	{
 		is.read(reinterpret_cast<char*>(&st._pc), sizeof(st._pc));
 		is.read(reinterpret_cast<char*>(&st._sp), sizeof(st._sp));
 		is.read(reinterpret_cast<char*>(&st._index), sizeof(st._index));
@@ -91,7 +108,9 @@ std::istream& operator>>(std::istream& is, Chip8& st) {
 		is.read(reinterpret_cast<char*>(&st._gprf), sizeof(st._gprf));
 		is.read(reinterpret_cast<char*>(&st._mem), sizeof(st._mem));
 		is.read(reinterpret_cast<char*>(&st._screen), sizeof(st._screen));
-	} catch (std::ios_base::failure& e) {
+	}
+	catch (std::ios_base::failure& e)
+	{
 		st.clear_state();
 		is.exceptions(prev_state);
 		st._access_lock.unlock();
@@ -104,7 +123,8 @@ std::istream& operator>>(std::istream& is, Chip8& st) {
 
 
 // Instructions with leading half bytes of 1, 2, A, and B.
-const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 // kNNN
+{
 	{0x1, in_jump},
 	{0x2, in_call},
 	{0xa, in_loadi},
@@ -113,7 +133,8 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS1 = { // kNNN
 
 
 // Instructions with leading half bytes of 3, 4, 6, 7, and C.
-const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 = { // kXNN
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 // kXNN
+{
 	{0x3, in_ske},
 	{0x4, in_skne},
 	{0x6, in_load},
@@ -123,7 +144,8 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS2 = { // kXNN
 
 
 // Instructions with leading half bytes of 5, 8, and 9.
-const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 = { // kXYk
+const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 // kXYk
+{
 	{0x50, in_skre},
 	{0x80, in_move},
 	{0x81, in_or},
@@ -139,7 +161,8 @@ const std::map<uint8_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS3 = { // kXYk
 
 
 // Instructions with leading half bytes of E and F.
-const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
+const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 // kXkk
+{
 	{0x0ea1, in_skup},
 	{0x0e9e, in_skpr},
 	{0x0f33, in_bcd},
@@ -155,12 +178,14 @@ const std::map<uint16_t, Chip8::_InstrFunc> Chip8::_INSTRUCTIONS4 = { // kXkk
 
 
 Chip8::Chip8(Chip8Keyboard* key, Chip8Display* disp, Chip8Sound* snd)
-	: _keyboard(key), _display(disp), _speaker(snd) {
+	: _keyboard(key), _display(disp), _speaker(snd)
+{
 	_display->_vm = this;
 }
 
 
-void Chip8::clear_state() {
+void Chip8::clear_state()
+{
 	_pc = _Prog_Start;
 	_sp = 0;
 	_index = 0;
@@ -179,7 +204,8 @@ void Chip8::clear_state() {
 }
 
 
-void Chip8::load_program(std::string& program) {
+void Chip8::load_program(std::string& program)
+{
 	// Verify the program isn't odd or too large.
 	if (program.size() > _Max_Prog_Size)
 		throw std::invalid_argument("Program is too large.");
@@ -195,7 +221,8 @@ void Chip8::load_program(std::string& program) {
 }
 
 
-Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
+Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction)
+{
 	// Grab the halfwords of the instruction.
 	uint8_t a = instr_a(instruction);
 	uint8_t b = instr_b(instruction);
@@ -203,8 +230,10 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 	uint8_t d = instr_d(instruction);
 	_InstrFunc func;
 	
-	try { // Use the instruction to determine which map to search.
-		switch (a) {
+	try // Use the instruction to determine which map to search.
+	{
+		switch (a)
+		{
 			case 0x0: // Leading half byte 0.
 				if (instruction == 0x00E0) func = in_clr;
 				else if (instruction == 0x00EE) func = in_rts;
@@ -235,7 +264,9 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 		}
 
 	// Catch and rethrow invalid instruction accesses.
-	} catch (std::out_of_range& e) {
+	}
+	catch (std::out_of_range& e)
+	{
 		std::stringstream msg;
 		msg << "Invalid Chip-8 instruction: "
 			<< std::uppercase << std::hex << instruction;
@@ -245,7 +276,8 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction) {
 }
 
 
-void Chip8::execute_batch(_TimeType elapsed_time) {
+void Chip8::execute_batch(_TimeType elapsed_time)
+{
 	if (_crashed) throw new Chip8Error("VM has already crashed.");
 
 	_access_lock.lock();
@@ -253,12 +285,16 @@ void Chip8::execute_batch(_TimeType elapsed_time) {
 	_time_budget += elapsed_time;
 	_TimeType cycles {_time_budget / cycle_period.count()};
 
-	try {
-		for (int64_t i {0}; i < cycles.count(); ++i) {
+	try
+	{
+		for (int64_t i {0}; i < cycles.count(); ++i)
+		{
 			execute_cycle(cycle_period);
 			_time_budget -= cycle_period;
 		}
-	} catch (Chip8Error& e) {
+	}
+	catch (Chip8Error& e)
+	{
 		_access_lock.unlock();
 		_crashed = true;
 		throw e;
@@ -268,18 +304,21 @@ void Chip8::execute_batch(_TimeType elapsed_time) {
 }
 
 
-void Chip8::execute_cycle(_TimeType cycle_time) {
+void Chip8::execute_cycle(_TimeType cycle_time)
+{
 	static constexpr _TimeType timer_period {_billion / 60U};
 	// Keep track of elapsed time to update the timers.
 	_timer += cycle_time;
 	// If the 60Hz timer has cycled, update the timers and reset it.
-	if (_timer >= timer_period) {
+	if (_timer >= timer_period)
+	{
 		long long timer_pulses {_timer.count() / timer_period.count()};
 		_timer %= timer_period;
 		if (_delay != 0) _delay -= timer_pulses;
 		if (_sound != 0) _sound -= timer_pulses;
 		_can_draw = true;
-	} else _can_draw = false;
+	}
+	else _can_draw = false;
 
 	if (_key_wait) return;
 
@@ -289,9 +328,9 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 
 	uint16_t instruction = get_hword(_pc);
 	_InstrFunc instr_func = get_instr_func(instruction);
-	try {
-		instr_func(*this, instruction);
-	} catch (std::out_of_range& e) {
+	try { instr_func(*this, instruction); }
+	catch (std::out_of_range& e)
+	{
 		std::stringstream msg;
 		msg	<< "Memory access violation: "
 			<< e.what();
@@ -299,46 +338,56 @@ void Chip8::execute_cycle(_TimeType cycle_time) {
 	}
 
 	// Set the sound output to reflect the value of the timer.
-	if (_sounding && _sound == 0) {
+	if (_sounding && _sound == 0)
+	{
 		_speaker->stop_sound();
 		_sounding = false;
-	} else if (!_sounding && _sound >= 2) {
+	}
+	else if (!_sounding && _sound >= 2)
+	{
 		_speaker->start_sound();
 		_sounding = true;
 	}
+
 	// Increment _pc if the instruction was not a jump, call, or wait.
 	if (instr_func != in_jump && instr_func != in_jumpi
 		&& instr_func != in_call && instr_func != in_keyd) _pc += 2;
 }
 
 
-uint16_t Chip8::frequency() {
+uint16_t Chip8::frequency()
+{
 	return _freq;
 }
 
 
-void Chip8::frequency(uint16_t value) {
+void Chip8::frequency(uint16_t value)
+{
 	_access_lock.lock();
 	_freq = value;
 	_access_lock.unlock();
 }
 
 
-bool Chip8::is_crashed() {
+bool Chip8::is_crashed()
+{
 	return _crashed;
 }
 
 
-bool Chip8::is_sounding() {
+bool Chip8::is_sounding()
+{
 	return _sounding;
 }
 
-bool Chip8::is_programmed() {
+bool Chip8::is_programmed()
+{
 	return _programmed;
 }
 
 
-uint16_t Chip8::get_hword(uint16_t addr) {
+uint16_t Chip8::get_hword(uint16_t addr)
+{
 	if (addr < 0 || addr >= _mem.size())
 		throw new std::out_of_range("Invalid memory location.");
 	uint16_t hword {static_cast<uint16_t>(_mem.at(addr) << 8)};
@@ -347,7 +396,8 @@ uint16_t Chip8::get_hword(uint16_t addr) {
 }
 
 
-void Chip8::set_hword(uint16_t addr, uint16_t hword) {
+void Chip8::set_hword(uint16_t addr, uint16_t hword)
+{
 	if (addr < 0 || addr >= _mem.size())
 		throw new std::out_of_range("Invalid memory location.");
 	_mem.at(addr) = static_cast<uint8_t>(hword >> 8);
@@ -355,7 +405,8 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword) {
 }
 
 
-void Chip8::key_pressed(uint8_t key) {
+void Chip8::key_pressed(uint8_t key)
+{
 	if (key > 0xf) throw new std::domain_error("Key value too large.");
 	if (!_key_wait) return;
 	uint16_t instruction = get_hword(_pc);
@@ -365,7 +416,8 @@ void Chip8::key_pressed(uint8_t key) {
 }
 
 
-void Chip8::key_released(uint8_t key) {
+void Chip8::key_released(uint8_t key)
+{
 	if (key > 0xf) throw new std::domain_error("Key value too large.");
 	if (key != _pressed_key) return;
 	_key_wait = false;
@@ -373,36 +425,42 @@ void Chip8::key_released(uint8_t key) {
 }
 
 
-uint64_t* Chip8::get_screen_buf() {
+uint64_t* Chip8::get_screen_buf()
+{
 	return &_screen[0];
 }
 
 
 // Instruction Implementing Methods ============================================
-void Chip8::in_sys(Chip8& vm, uint16_t instr) { // 0NNN
+void Chip8::in_sys(Chip8& vm, uint16_t instr) // 0NNN
+{
 	// Originally called machine code instruction, does nothing here.
 }
 
 
-void Chip8::in_clr(Chip8& vm, uint16_t instr) { // 00E0
+void Chip8::in_clr(Chip8& vm, uint16_t instr) // 00E0
+{
 	memset(&vm._screen, 0, sizeof(vm._screen));
 	vm._display->mark();
 }
 
 
-void Chip8::in_rts(Chip8& vm, uint16_t instr) { // 00EE
+void Chip8::in_rts(Chip8& vm, uint16_t instr) // 00EE
+{
 	if (vm._sp <= 1) throw Chip8Error("VM call stack underflow.");
 	vm._sp -= 2;
 	vm._pc = vm.get_hword(vm._sp);
 }
 
 
-void Chip8::in_jump(Chip8& vm, uint16_t instr) { // 1NNN
+void Chip8::in_jump(Chip8& vm, uint16_t instr) // 1NNN
+{
 	vm._pc = instr_addr(instr);
 }
 
 
-void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
+void Chip8::in_call(Chip8& vm, uint16_t instr) // 2NNN
+{
 	if (vm._sp >= _font_off - 1) throw Chip8Error("VM call stack overflow.");
 	vm.set_hword(vm._sp, vm._pc);
 	vm._sp += 2;
@@ -410,58 +468,68 @@ void Chip8::in_call(Chip8& vm, uint16_t instr) { // 2NNN
 }
 
 
-void Chip8::in_ske(Chip8& vm, uint16_t instr) { // 3XNN
+void Chip8::in_ske(Chip8& vm, uint16_t instr) // 3XNN
+{
 	if (vm._gprf[instr_b(instr)] == instr_imm(instr)) vm._pc += 2;
 }
 
 
-void Chip8::in_skne(Chip8& vm, uint16_t instr) { // 4XNN
+void Chip8::in_skne(Chip8& vm, uint16_t instr) // 4XNN
+{
 	if (vm._gprf[instr_b(instr)] != instr_imm(instr)) vm._pc += 2;
 }
 
 
-void Chip8::in_skre(Chip8& vm, uint16_t instr) { // 5XY0
+void Chip8::in_skre(Chip8& vm, uint16_t instr) // 5XY0
+{
 	if (vm._gprf[instr_b(instr)] == vm._gprf[instr_c(instr)]) vm._pc += 2;
 }
 
 
-void Chip8::in_load(Chip8& vm, uint16_t instr) { // 6XNN
+void Chip8::in_load(Chip8& vm, uint16_t instr) // 6XNN
+{
 	vm._gprf[instr_b(instr)] = instr_imm(instr);
 }
 
 
-void Chip8::in_add(Chip8& vm, uint16_t instr) { // 7XNN
+void Chip8::in_add(Chip8& vm, uint16_t instr) // 7XNN
+{
 	vm._gprf[instr_b(instr)] += instr_imm(instr);
 }
 
 
-void Chip8::in_move(Chip8& vm, uint16_t instr) { // 8XY0
+void Chip8::in_move(Chip8& vm, uint16_t instr)
+{ // 8XY0
 	vm._gprf[instr_b(instr)] = vm._gprf[instr_c(instr)];
 }
 
 
-void Chip8::in_or(Chip8& vm, uint16_t instr) { // 8XY1
+void Chip8::in_or(Chip8& vm, uint16_t instr) // 8XY1
+{
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] | vm._gprf[instr_c(instr)];
 	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
-void Chip8::in_and(Chip8& vm, uint16_t instr) { // 8XY2
+void Chip8::in_and(Chip8& vm, uint16_t instr) // 8XY2
+{
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] & vm._gprf[instr_c(instr)];
 	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
-void Chip8::in_xor(Chip8& vm, uint16_t instr) { // 8XY3
+void Chip8::in_xor(Chip8& vm, uint16_t instr) // 8XY3
+{
 	vm._gprf[instr_b(instr)]
 		= vm._gprf[instr_b(instr)] ^ vm._gprf[instr_c(instr)];
 	vm._gprf[0xf] = 0x00; // Quirk of the original Chip-8.
 }
 
 
-void Chip8::in_addr(Chip8& vm, uint16_t instr) { // 8XY4
+void Chip8::in_addr(Chip8& vm, uint16_t instr) // 8XY4
+{
 	uint8_t b {vm._gprf[instr_b(instr)]};
 	uint8_t c {vm._gprf[instr_c(instr)]};
 	uint8_t sum {static_cast<uint8_t>(b + c)};
@@ -472,7 +540,8 @@ void Chip8::in_addr(Chip8& vm, uint16_t instr) { // 8XY4
 }
 
 
-void Chip8::in_sub(Chip8& vm, uint16_t instr) { // 8XY5
+void Chip8::in_sub(Chip8& vm, uint16_t instr) // 8XY5
+{
 	uint8_t b {vm._gprf[instr_b(instr)]};
 	uint8_t c {vm._gprf[instr_c(instr)]};
 	uint8_t difference {static_cast<uint8_t>(b - c)};
@@ -483,14 +552,16 @@ void Chip8::in_sub(Chip8& vm, uint16_t instr) { // 8XY5
 }
 
 
-void Chip8::in_shr(Chip8& vm, uint16_t instr) { // 8XY6
+void Chip8::in_shr(Chip8& vm, uint16_t instr) // 8XY6
+{
 	uint8_t opY {vm._gprf[instr_c(instr)]};
 	vm._gprf[instr_b(instr)] = opY >> 1;
 	vm._gprf[0xf] = opY & 0x01;
 }
 
 
-void Chip8::in_suba(Chip8& vm, uint16_t instr) { // 8XY7
+void Chip8::in_suba(Chip8& vm, uint16_t instr) // 8XY7
+{
 	uint8_t b {vm._gprf[instr_b(instr)]};
 	uint8_t c {vm._gprf[instr_c(instr)]};
 	uint8_t difference {static_cast<uint8_t>(c - b)};
@@ -501,36 +572,43 @@ void Chip8::in_suba(Chip8& vm, uint16_t instr) { // 8XY7
 }
 
 
-void Chip8::in_shl(Chip8& vm, uint16_t instr) { // 8XYE
+void Chip8::in_shl(Chip8& vm, uint16_t instr) // 8XYE
+{
 	uint8_t opY {vm._gprf[instr_c(instr)]};
 	vm._gprf[instr_b(instr)] = opY << 1;
 	vm._gprf[0xf] = (opY & 0x80) >> 7;
 }
 
 
-void Chip8::in_skrne(Chip8& vm, uint16_t instr) { // 9XY0
+void Chip8::in_skrne(Chip8& vm, uint16_t instr)
+{ // 9XY0
 	if (vm._gprf[instr_b(instr)] != vm._gprf[instr_c(instr)]) vm._pc += 2;
 }
 
 
-void Chip8::in_loadi(Chip8& vm, uint16_t instr) { // ANNN
+void Chip8::in_loadi(Chip8& vm, uint16_t instr) // ANNN
+{
 	vm._index = instr_addr(instr);
 }
 
 
-void Chip8::in_jumpi(Chip8& vm, uint16_t instr) { // BNNN
+void Chip8::in_jumpi(Chip8& vm, uint16_t instr) // BNNN
+{
 	vm._pc = vm._gprf[0x0] + instr_addr(instr);
 }
 
 
-void Chip8::in_rand(Chip8& vm, uint16_t instr) { // CXNN
+void Chip8::in_rand(Chip8& vm, uint16_t instr) // CXNN
+{
 	vm._gprf[instr_b(instr)] = (rand() % 256) & instr_imm(instr);
 }
 
 
-void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
+void Chip8::in_draw(Chip8& vm, uint16_t instr) // DXYN
+{
 	// Only draw just after a "screen refresh" (prevented V-tearing originally).
-	if (!vm._can_draw) {
+	if (!vm._can_draw)
+	{
 		vm._pc -= 2;
 		return;
 	}
@@ -543,7 +621,8 @@ void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 	int x_shift {56 - xpos};
 
 	// Iterate over each line of the sprite.
-	for (uint8_t y {0}; y < y_max; ++y) {
+	for (uint8_t y {0}; y < y_max; ++y)
+	{
 		// Grab the row from the sprite.
 		uint64_t spr_line {static_cast<uint64_t>(vm._mem.at(vm._index + y))};
 		// Shift the sprite row left or right.
@@ -560,48 +639,57 @@ void Chip8::in_draw(Chip8& vm, uint16_t instr) { // DXYN
 }
 
 
-void Chip8::in_skpr(Chip8& vm, uint16_t instr) { // EX9E
+void Chip8::in_skpr(Chip8& vm, uint16_t instr) // EX9E
+{
 	if (vm._keyboard->test_key(vm._gprf[instr_b(instr)])) vm._pc += 2;
 }
 
 
-void Chip8::in_skup(Chip8& vm, uint16_t instr) { // EXA1
+void Chip8::in_skup(Chip8& vm, uint16_t instr) // EXA1
+{
 	if (!vm._keyboard->test_key(vm._gprf[instr_b(instr)])) vm._pc += 2;
 }
 
 
-void Chip8::in_moved(Chip8& vm, uint16_t instr) { // FX07
+void Chip8::in_moved(Chip8& vm, uint16_t instr) // FX07
+{
 	vm._gprf[instr_b(instr)] = vm._delay;
 }
 
 
-void Chip8::in_keyd(Chip8& vm, uint16_t instr) { // FX0A
+void Chip8::in_keyd(Chip8& vm, uint16_t instr) // FX0A
+{
 	vm._key_wait = true;
 }
 
 
-void Chip8::in_loadd(Chip8& vm, uint16_t instr) { // FX15
+void Chip8::in_loadd(Chip8& vm, uint16_t instr) // FX15
+{
 	vm._delay = vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_loads(Chip8& vm, uint16_t instr) { // FX18
+void Chip8::in_loads(Chip8& vm, uint16_t instr) // FX18
+{
 	vm._sound = vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_addi(Chip8& vm, uint16_t instr) { // FX1E
+void Chip8::in_addi(Chip8& vm, uint16_t instr) // FX1E
+{
 	vm._index += vm._gprf[instr_b(instr)];
 }
 
 
-void Chip8::in_ldspr(Chip8& vm, uint16_t instr) { // FX29
+void Chip8::in_ldspr(Chip8& vm, uint16_t instr) // FX29
+{
 	vm._index = _font_off + vm._gprf[instr_b(instr)] * 5;
 }
 
 
 // Employs the Double Dabble algorithm.
-void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
+void Chip8::in_bcd(Chip8& vm, uint16_t instr) // FX33
+{
 	static constexpr uint32_t hundreds = 0xf0000U;
 	static constexpr uint32_t tens = 0xf000U;
 	static constexpr uint32_t ones = 0xf00U;
@@ -609,7 +697,8 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 	// Grab the initial value from the register.
 	uint32_t scratch {vm._gprf[instr_b(instr)]};
 
-	for (size_t i {0}; i < 7; ++i) {
+	for (size_t i {0}; i < 7; ++i)
+	{
 		scratch = scratch << 1; // Shift in each bit of the value.
 		// Add 3 to each digit if greater than 4.
 		if ((scratch & hundreds) > 0x40000)
@@ -629,13 +718,15 @@ void Chip8::in_bcd(Chip8& vm, uint16_t instr) { // FX33
 }
 
 
-void Chip8::in_stor(Chip8& vm, uint16_t instr) { // FX55
+void Chip8::in_stor(Chip8& vm, uint16_t instr) // FX55
+{
 	for (uint8_t i {0}; i <= instr_b(instr); ++i)
 		vm._mem.at(vm._index ++) = vm._gprf[i];
 }
 
 
-void Chip8::in_read(Chip8& vm, uint16_t instr) { // FX65
+void Chip8::in_read(Chip8& vm, uint16_t instr) // FX65
+{
 	for (uint8_t i {0}; i <= instr_b(instr); ++i)
 		vm._gprf[i] = vm._mem.at(vm._index ++);
 }
