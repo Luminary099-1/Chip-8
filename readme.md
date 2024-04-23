@@ -2,7 +2,7 @@
 Author: Matthew Michaud (matthew.michaud@alumni.ucalgary.ca)
 
 ## Overview
-As a first project in emulation development, I've created an emulator/VM for Chip-8, originally devised for creating games on the [COSMAC VIP](https://en.wikipedia.org/wiki/COSMAC_VIP). The emulator is relatively simple, given the weak implementation constraints imposed by Chip-8. In developing the emulator, I made an effort to make it modular so it could be ported to work with different front-ends. In this implementation, I chose wxWidgets as a front-end for the GUI, display output, and keyboard input, and I used [SFML](https://www.sfml-dev.org/index.php) for sound.
+As a first project in emulation development, I've created an emulator/VM for Chip-8, originally devised for creating games on the [COSMAC VIP](https://en.wikipedia.org/wiki/COSMAC_VIP). The emulator is relatively simple, given the weak implementation constraints imposed by Chip-8. In developing the emulator, I made an effort to make it modular so it could be ported to work with different front-ends. In this implementation, I chose [wxWidgets](https://www.wxwidgets.org/) as a front-end for the GUI, display output, keyboard input, and output sound.
 
 Presently, I believe the emulation is essentially correct beyond a small handful of things that could be improved. However, there are a few issues remaining with my front-end like periodic crashes when performing certain actions and somewhat broken sound.
 

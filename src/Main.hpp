@@ -1,16 +1,18 @@
 #pragma once
 
 #include "Chip8.hpp"
-#include <atomic>
-#include <mutex>
-#include <fstream>
-#include <thread>
-#include <SFML/Audio.hpp>
+
 // For compilers that support precompilation, includes "wx/wx.h".
+#include <wx/sound.h>
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
 	#include <wx/wx.h>
 #endif
+
+#include <atomic>
+#include <mutex>
+#include <fstream>
+#include <thread>
 
 
 /**
@@ -107,10 +109,8 @@ class MainFrame
 public:
 	/**
 	 * @brief Creates a new MainFrame instance (including a Chip-8 VM).
-	 * 
-	 * @param beep_sound The sound that will be used to produce the Chip-8 tone.
 	 */
-	MainFrame(sf::Sound* beep_sound);
+	MainFrame();
 
 private:
 	Chip8* 				_vm;		// Chip-8 VM.
@@ -119,8 +119,8 @@ private:
 	bool				_running;	// Indicates the the VM is running.
 	std::atomic<bool>	_die;		// Indicates the thread should exit.
 	Chip8ScreenPanel* 	_screen;	// Chip-8 screen.
-	sf::Sound*			_beep;		// Emits the tone played by the Chip-8 VM.
 	std::map<uint8_t, bool> _key_states; // Stores the state of each Chip-8 key.
+	wxSound* _sound;				// Emits the tone played by the Chip-8 VM.
 
 	/**
 	 * @brief Test if the specifed key is currently pressed.
@@ -293,8 +293,6 @@ class Chip8CPP
 	MainFrame* _frame;
 	std::ofstream _error_file;
 	std::streambuf* _old_error_buf;
-	sf::SoundBuffer _beep_buf;
-	sf::Sound* _beep;
 	
 public:
 	/**

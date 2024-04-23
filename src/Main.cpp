@@ -1,5 +1,7 @@
 #include "Main.hpp"
 
+#include "beep.hpp"
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -25,20 +27,7 @@ const std::map<wxChar, uint8_t> key_map
 
 bool Chip8CPP::OnInit()
 {
-	// _error_file.open(".\\errorlog.txt");
-	_old_error_buf = std::cerr.rdbuf();
-	// std::cerr.rdbuf(_error_file.rdbuf());
-	if (!_beep_buf.loadFromFile("./440T.wav"))
-	{
-		wxMessageDialog errorDialog(nullptr, "Unable to open sound file.",
-			"Fatal Error", wxOK | wxICON_ERROR | wxCENTRE);
-		errorDialog.ShowModal();
-		return false;
-	}
-
-	_beep = new sf::Sound(_beep_buf);
-	_beep->setLoop(true);
-	_frame = new MainFrame(_beep);
+	_frame = new MainFrame();
 	_frame->Show();
 	return true;
 }
@@ -46,8 +35,6 @@ bool Chip8CPP::OnInit()
 
 int Chip8CPP::OnExit()
 {
-	std::cerr.rdbuf(_old_error_buf);
-	delete _beep;
 	return 0;
 }
 
@@ -155,11 +142,9 @@ void Chip8ScreenPanel::publish_buffer()
 }
 
 
-MainFrame::MainFrame(sf::Sound* beep_sound)
+MainFrame::MainFrame()
 	: wxFrame(NULL, wxID_ANY, "Chip-8 C++ Emulator")
 {
-	// Set up the sound display for the VM.
-	_beep = beep_sound;
 	_screen = new Chip8ScreenPanel(this);
 	// Set up the "File" menu dropdown.
 	wxMenu* menu_file = new wxMenu;
@@ -193,6 +178,8 @@ MainFrame::MainFrame(sf::Sound* beep_sound)
 	SetMenuBar(menuBar);
 	CreateStatusBar();
 	SetStatusText("No program loaded, idle.");
+	// Set up the sound and display.
+	_sound = new wxSound(sizeof(beep), beep);
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 	sizer->Add(_screen, 1, wxSHAPED | wxALIGN_CENTER);
 	SetSizer(sizer);
@@ -234,13 +221,13 @@ bool MainFrame::test_key(uint8_t key)
 
 void MainFrame::start_sound()
 {
-	_beep->play();
+	_sound->Play(wxSOUND_ASYNC | wxSOUND_LOOP);
 }
 
 
 void MainFrame::stop_sound()
 {
-	_beep->stop();
+	_sound->Stop();
 }
 
 
@@ -503,7 +490,7 @@ void MainFrame::start_vm()
 		return;
 	}
 	_run_lock.unlock();
-	if (_vm->is_sounding()) _beep->play();
+	if (_vm->is_sounding()) _sound->Play(wxSOUND_ASYNC | wxSOUND_LOOP);
 	_running = true;
 	show_running_status();
 }
@@ -512,7 +499,7 @@ void MainFrame::start_vm()
 void MainFrame::stop_vm()
 {
 	if (!_running) return;
-	_beep->pause();
+	_sound->Stop();
 	_run_lock.lock();
 	_running = false;
 	SetStatusText("Idle.");
