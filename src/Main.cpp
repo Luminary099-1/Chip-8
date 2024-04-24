@@ -276,8 +276,11 @@ void MainFrame::on_open(wxCommandEvent& event)
 	
 	// Pass the string of the program to the VM.
 	try { _vm->load_program(program); }
-	catch (std::exception& e)
-	{ wxMessageBox(e.what(), "Chip-8 Error", wxOK | wxICON_ERROR | wxCENTER); }
+	catch (std::invalid_argument& e)
+	{
+		wxMessageBox(e.what(), "Failed to load program",
+			wxOK | wxICON_ERROR | wxCENTER);
+	}
 	
 	SetStatusText("Idle.");
 	_screen->clear_buffer();
@@ -290,7 +293,8 @@ void MainFrame::on_save(wxCommandEvent& event)
 {
 	// Construct a dialog to select the file path to open.
 	wxFileDialog saveDalog(this, "Save Chip-8 State", "", "",
-		"Save state files (*.state8)|*.state8|All files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		"Save state files (*.state8)|*.state8|All files (*.*)|*.*",
+		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 	// Do nothing if the user doesn't select a file.
 	if (saveDalog.ShowModal() == wxID_CANCEL) return;
 
@@ -464,7 +468,7 @@ void MainFrame::run_vm(MainFrame* frame)
 			std::string msg {"The VM has crashed with the following error: "};
 			msg.append(e.what());
 			wxMessageDialog errorDialog(frame, msg, "Error",
-			wxOK | wxICON_ERROR | wxCENTRE);
+				wxOK | wxICON_ERROR | wxCENTRE);
 			errorDialog.ShowModal();
 			break;
 		}

@@ -83,6 +83,7 @@ public:
 	 * @param program A string that contains the program to be loaded. The
 	 * contents of the steam are assumed to be in "compiled" Chip-8 byte code,
 	 * each instruction being two bytes with nothing in between each.
+	 * @throws std::invalid_argument if the loaded program is too large.
 	 */
 	void load_program(std::string& program);
 
@@ -129,6 +130,7 @@ public:
 	 * 
 	 * @param elapsed_time The number of miliseconds to run the emulation
 	 * forward.
+	 * @throws Chip8Error if the virtual machine crashes or has already crashed.
 	 */
 	void execute_batch(_TimeType elapsed_time);
 
@@ -147,7 +149,7 @@ public:
 	void frequency(uint16_t value);
 
 	/**
-	 * @brief Call to indicated the passed key was just pressed. A corresponding
+	 * @brief Call to indicate the passed key was just pressed. A corresponding
 	 * call to key_released must be made after  every call to this function.
 	 * 
 	 * @param key The value of the key that was just pressed.

@@ -1,6 +1,7 @@
 #include "Chip8.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
@@ -278,7 +279,7 @@ Chip8::_InstrFunc Chip8::get_instr_func(uint16_t instruction)
 
 void Chip8::execute_batch(_TimeType elapsed_time)
 {
-	if (_crashed) throw new Chip8Error("VM has already crashed.");
+	if (_crashed) throw Chip8Error("VM has already crashed.");
 
 	_access_lock.lock();
 	_TimeType cycle_period {_billion / _freq};
@@ -324,8 +325,9 @@ void Chip8::execute_cycle(_TimeType cycle_time)
 
 	// Grab and execute the next instruction.
 	if (_pc < _Prog_Start || _pc > _mem.size())
-		throw new Chip8Error("PC is outside of the program range.");
+		throw Chip8Error("PC is outside of the program range.");
 
+	// The above check avoids the exception of get_hword(_pc) here.
 	uint16_t instruction = get_hword(_pc);
 	_InstrFunc instr_func = get_instr_func(instruction);
 	try { instr_func(*this, instruction); }
@@ -389,7 +391,7 @@ bool Chip8::is_programmed()
 uint16_t Chip8::get_hword(uint16_t addr)
 {
 	if (addr < 0 || addr >= _mem.size())
-		throw new std::out_of_range("Invalid memory location.");
+		throw std::out_of_range("Invalid Chip-8 VM memory location.");
 	uint16_t hword {static_cast<uint16_t>(_mem.at(addr) << 8)};
 	hword += _mem.at(addr + 1);
 	return hword;
@@ -399,7 +401,7 @@ uint16_t Chip8::get_hword(uint16_t addr)
 void Chip8::set_hword(uint16_t addr, uint16_t hword)
 {
 	if (addr < 0 || addr >= _mem.size())
-		throw new std::out_of_range("Invalid memory location.");
+		throw std::out_of_range("Invalid Chip-8 VM memory location.");
 	_mem.at(addr) = static_cast<uint8_t>(hword >> 8);
 	_mem.at(addr + 1) = static_cast<uint8_t>(hword & 0xffU);
 }
@@ -407,9 +409,13 @@ void Chip8::set_hword(uint16_t addr, uint16_t hword)
 
 void Chip8::key_pressed(uint8_t key)
 {
-	if (key > 0xf) throw new std::domain_error("Key value too large.");
+	assert(key <= 0xf);
 	if (!_key_wait) return;
-	uint16_t instruction = get_hword(_pc);
+
+	uint16_t instruction {0};
+	try { instruction = get_hword(_pc); }
+	catch(const std::exception& e)
+	{ throw Chip8Error(e.what()); }
 	_gprf[instr_b(instruction)] = key;
 	_pc += 2;
 	_pressed_key = key;
@@ -418,7 +424,7 @@ void Chip8::key_pressed(uint8_t key)
 
 void Chip8::key_released(uint8_t key)
 {
-	if (key > 0xf) throw new std::domain_error("Key value too large.");
+	assert(key <= 0xf);
 	if (key != _pressed_key) return;
 	_key_wait = false;
 	_pressed_key = _no_key;
